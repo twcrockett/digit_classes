@@ -13,6 +13,8 @@ bibliography: references.bib
 editor: 
   markdown: 
     wrap: 72
+execute:
+  message: false
 ---
 
 ```{r r-setup}
@@ -154,8 +156,6 @@ with h5py.File(path, 'r') as hf:
 X = np.concatenate([X_tr, X_te], axis=0)
 y = np.concatenate([y_tr, y_te], axis=0)
 
-X_shape = X.shape
-
 # X = r.usps['data']
 # y = np.array(r.usps['label']).astype(int)
 
@@ -264,7 +264,7 @@ param_grids = {
 
 # The Model I Seek
 
-I'm tackling the provided Kaggle digit data which is a tensor of size `{python} X_shape`. As I write this today, I am using a 2-year old Dell laptop with
+I'm tackling the provided Kaggle digit data which is a tensor of size (9298, 16, 16). As I write this today, I am using a 2-year old Dell laptop with
 persistent device failure issues and a hardware-failed integrated
 graphics card. This beast in its heyday could run a nasty CNN, but now
 it whimpers booting up Minecraft. Perhaps I abused it, or perhaps Dell
@@ -457,7 +457,7 @@ lr_df = calculate_selection_score(pd.DataFrame(lr_results))
 
 # lr_results <- py$lr_df
 # write_csv(lr_results, "data/lr_results.csv")
-lr_results <- read_csv("data/lr_results.csv")
+lr_results <- read_csv(show_col_types = FALSE, "data/lr_results.csv")
 
 results_table(
   lr_results,
@@ -667,7 +667,7 @@ svd_df = calculate_selection_score(pd.DataFrame(svd_results))
 
 # svd_results <- py$svd_df
 # write_csv(svd_results, "data/svd_results.csv")
-svd_results <- read_csv("data/svd_results.csv")
+svd_results <- read_csv(show_col_types = FALSE, "data/svd_results.csv")
 
 results_table(
   svd_results,
@@ -968,7 +968,7 @@ hosvd_df = calculate_selection_score(pd.DataFrame(hosvd_results))
 
 # hosvd_results <- py$hosvd_df
 # write_csv(hosvd_results, "data/hosvd_results.csv")
-hosvd_results <- read_csv("data/hosvd_results.csv")
+hosvd_results <- read_csv(show_col_types = FALSE, "data/hosvd_results.csv")
 
 results_table(
   hosvd_results,
@@ -1098,7 +1098,7 @@ lda_df = calculate_selection_score(pd.DataFrame(lda_results))
 
 # lda_results <- py$lda_df
 # write_csv(lda_results, "data/lda_results.csv")
-lda_results <- read_csv("data/lda_results.csv")
+lda_results <- read_csv(show_col_types = FALSE, "data/lda_results.csv")
 
 results_table(
   lda_results,
@@ -1217,7 +1217,7 @@ knn_df = calculate_selection_score(pd.DataFrame(knn_results))
 
 # knn_results <- py$knn_df
 # write_csv(knn_results, "data/knn_results.csv")
-knn_results <- read_csv("data/knn_results.csv")
+knn_results <- read_csv(show_col_types = FALSE, "data/knn_results.csv")
 
 results_table(
   knn_results,
@@ -1359,14 +1359,14 @@ rf_df = calculate_selection_score(pd.DataFrame(rf_results))
 
 # rf_results <- py$rf_df
 # write_csv(rf_results, "data/rf_results.csv")
-rf_results <- read_csv("data/rf_results.csv")
+rf_results <- read_csv(show_col_types = FALSE, "data/rf_results.csv")
 
 results_table(
   rf_results,
   prefix_cols=list(
-    n_estimators = colDef(name = "Trees"),
-    max_depth = colDef(name = "Max. depth"),
-    min_samples_split = colDef(name = "Min. split")
+    n_estimators = colDef(name = "Trees", minWidth = 80),
+    max_depth = colDef(name = "Max. depth", minWidth = 110),
+    min_samples_split = colDef(name = "Min. split", minWidth = 90)
   )
 )
 
@@ -1603,7 +1603,7 @@ nb_df = calculate_selection_score(pd.DataFrame(nb_results))
 
 # nb_results <- py$nb_df
 # write_csv(nb_results, "data/nb_results.csv")
-nb_results <- read_csv("data/nb_results.csv")
+nb_results <- read_csv(show_col_types = FALSE, "data/nb_results.csv")
 
 results_table(
   nb_results,
@@ -1887,7 +1887,7 @@ svm_df = calculate_selection_score(pd.DataFrame(svm_results))
 
 # svm_results <- py$svm_df
 # write_csv(svm_results, "data/svm_results.csv")
-svm_results <- read_csv("data/svm_results.csv")
+svm_results <- read_csv(show_col_types = FALSE, "data/svm_results.csv")
 
 results_table(
   svm_results,
@@ -2229,7 +2229,7 @@ greedy_df = greedy_df.sort_values('selection_score', ascending=False).reset_inde
 # greedy_results <- py$greedy_df %>%
 #   mutate(across(c(mean_accuracy, mean_precision, mean_recall, f1_score, total_time, selection_score), as.numeric))
 # write_csv(greedy_results, "data/greedy_results.csv")
-greedy_results <- read_csv("data/greedy_results.csv")
+greedy_results <- read_csv(show_col_types = FALSE, "data/greedy_results.csv")
 
 results_table(
   greedy_results,

@@ -1,7 +1,0 @@
-"0","greedy_df.reset_index(inplace=True)
-"
-"2","Traceback (most recent call last):
-  File ""<string>"", line 1, in <module>
-AttributeError: 'str' object has no attribute 'reset_index'
-"
-"0",""
