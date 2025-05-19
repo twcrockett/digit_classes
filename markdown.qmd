@@ -154,6 +154,8 @@ with h5py.File(path, 'r') as hf:
 X = np.concatenate([X_tr, X_te], axis=0)
 y = np.concatenate([y_tr, y_te], axis=0)
 
+X_shape = X.shape
+
 # X = r.usps['data']
 # y = np.array(r.usps['label']).astype(int)
 
@@ -262,7 +264,7 @@ param_grids = {
 
 # The Model I Seek
 
-As I write this today, I am using a 2-year old Dell laptop with
+I'm tackling the provided Kaggle digit data which is a tensor of size `{python} X_shape`. As I write this today, I am using a 2-year old Dell laptop with
 persistent device failure issues and a hardware-failed integrated
 graphics card. This beast in its heyday could run a nasty CNN, but now
 it whimpers booting up Minecraft. Perhaps I abused it, or perhaps Dell
@@ -450,6 +452,7 @@ lr_df = calculate_selection_score(pd.DataFrame(lr_results))
 #| warning: false
 #| output: true
 #| echo: false
+#| message: false
 
 
 # lr_results <- py$lr_df
@@ -660,7 +663,7 @@ svd_df = calculate_selection_score(pd.DataFrame(svd_results))
 #| warning: false
 #| output: true
 #| echo: false
-
+#| message: false
 
 # svd_results <- py$svd_df
 # write_csv(svd_results, "data/svd_results.csv")
@@ -961,6 +964,7 @@ hosvd_df = calculate_selection_score(pd.DataFrame(hosvd_results))
 #| warning: false
 #| output: true
 #| echo: false
+#| message: false
 
 # hosvd_results <- py$hosvd_df
 # write_csv(hosvd_results, "data/hosvd_results.csv")
@@ -1090,6 +1094,7 @@ lda_df = calculate_selection_score(pd.DataFrame(lda_results))
 #| warning: false
 #| output: true
 #| echo: false
+#| message: false
 
 # lda_results <- py$lda_df
 # write_csv(lda_results, "data/lda_results.csv")
@@ -1208,6 +1213,7 @@ knn_df = calculate_selection_score(pd.DataFrame(knn_results))
 #| warning: false
 #| output: true
 #| echo: false
+#| message: false
 
 # knn_results <- py$knn_df
 # write_csv(knn_results, "data/knn_results.csv")
@@ -1349,6 +1355,7 @@ rf_df = calculate_selection_score(pd.DataFrame(rf_results))
 #| warning: false
 #| output: true
 #| echo: false
+#| message: false
 
 # rf_results <- py$rf_df
 # write_csv(rf_results, "data/rf_results.csv")
@@ -1592,6 +1599,7 @@ nb_df = calculate_selection_score(pd.DataFrame(nb_results))
 #| warning: false
 #| output: true
 #| echo: false
+#| message: false
 
 # nb_results <- py$nb_df
 # write_csv(nb_results, "data/nb_results.csv")
@@ -1875,6 +1883,7 @@ svm_df = calculate_selection_score(pd.DataFrame(svm_results))
 #| warning: false
 #| output: true
 #| echo: false
+#| message: false
 
 # svm_results <- py$svm_df
 # write_csv(svm_results, "data/svm_results.csv")
@@ -2001,6 +2010,7 @@ results_table(
 #| warning: false
 #| output: true
 #| echo: false
+#| message: false
 
 # rvm_results <- py$rvm_df
 # 
@@ -2019,7 +2029,7 @@ results_table(
 ## What is "greedy" $k$-fold cross-validation?
 
 Earlier, I used a stratified CV method, which was good at finding
-optimal hyperparameters because \_\_\_
+optimal hyperparameters.
 
 This time, I'm using a different approach called a "greedy" $k$-fold
 cross-validation that works by:
@@ -2214,6 +2224,7 @@ greedy_df = greedy_df.sort_values('selection_score', ascending=False).reset_inde
 #| warning: false
 #| output: true
 #| echo: false
+#| message: false
 
 # greedy_results <- py$greedy_df %>%
 #   mutate(across(c(mean_accuracy, mean_precision, mean_recall, f1_score, total_time, selection_score), as.numeric))
