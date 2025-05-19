@@ -1593,7 +1593,7 @@ nb_df = calculate_selection_score(pd.DataFrame(nb_results))
 #| output: true
 #| echo: false
 
-nb_results <- py$nb_df
+# nb_results <- py$nb_df
 # write_csv(nb_results, "data/nb_results.csv")
 nb_results <- read_csv("data/nb_results.csv")
 
@@ -1796,6 +1796,7 @@ $K(x, y) = \exp(-\gamma ||x - y||^2)$
 #| warning: false
 #| output: false
 #| echo: false
+#| eval: false
 
 def svm_classifier(X_train, X_test, y_train, y_test, C, kernel, gamma):
     # Scale data
@@ -1875,7 +1876,9 @@ svm_df = calculate_selection_score(pd.DataFrame(svm_results))
 #| output: true
 #| echo: false
 
-svm_results <- py$svm_df
+# svm_results <- py$svm_df
+# write_csv(svm_results, "data/svm_results.csv")
+svm_results <- read_csv("data/svm_results.csv")
 
 results_table(
   svm_results,
@@ -2034,11 +2037,16 @@ achieving the highest performance \[soper:2021\].
 ```{python greedy}
 #| warning: false
 #| output: false
+#| echo: false
+#| eval: false
+
+lr_df = r.lr_results
+svd_df = r.svd_results
 
 # Find the best configuration for each model family
 best_configs = {
-    'LogisticRegression': lr_df.loc[lr_df['selection_score'].idxmax()].to_dict(),
-    'SVD': svd_df.loc[svd_df['selection_score'].idxmax()].to_dict(),
+    'LogisticRegression': r.lr_results.loc[r.lr_results['selection_score'].idxmax()].to_dict(),
+    'SVD': r.svd_results.loc[r.svd_results['selection_score'].idxmax()].to_dict(),
     'HOSVD': hosvd_df.loc[hosvd_df['selection_score'].idxmax()].to_dict(),
     'LDA': lda_df.loc[lda_df['selection_score'].idxmax()].to_dict(),
     'RandomForest': rf_df.loc[rf_df['selection_score'].idxmax()].to_dict(),
@@ -2168,6 +2176,10 @@ while remaining_models:
 greedy_df = pd.DataFrame(greedy_results)
 greedy_df = greedy_df.sort_values('selection_score', ascending=False).reset_index(drop=True)
 
+greedy_df = pd.DataFrame(best_configs).transpose()
+greedy_df.index.name = 'model'
+greedy_df.reset_index(inplace=True)
+
 def format_model_name(model_data, prefix):
     if prefix == 'LogisticRegression':
         return f"Logistic Regression (C={model_data['C']})"
@@ -2203,7 +2215,10 @@ greedy_df = greedy_df.sort_values('selection_score', ascending=False).reset_inde
 #| output: true
 #| echo: false
 
-greedy_results <- py$greedy_df
+# greedy_results <- py$greedy_df %>%
+#   mutate(across(c(mean_accuracy, mean_precision, mean_recall, f1_score, total_time, selection_score), as.numeric))
+# write_csv(greedy_results, "data/greedy_results.csv")
+greedy_results <- read_csv("data/greedy_results.csv")
 
 results_table(
   greedy_results,
@@ -2211,24 +2226,4 @@ results_table(
     model = colDef(name = "Model", minWidth = 140)
   )
 )
-```
-```{python final_analysis}
-#| echo: false
-#| warning: false
-
-top_models = greedy_df.head(3)['model'].tolist()
-base_model_names = [name.split('(')[0].strip() for name in top_models]
-confusion_matrices = generate_confusion_matrices(
-    base_model_names,
-    model_functions,
-    X_gtrain, X_gtest, y_gtrain, y_gtest
-)
-
-# Visualize model performance
-visualize_model_performance(
-    greedy_df,
-    save_path="model_performance_visualization.png",  # Optional: save the plot
-    confusion_matrices=confusion_matrices
-)
-
 ```

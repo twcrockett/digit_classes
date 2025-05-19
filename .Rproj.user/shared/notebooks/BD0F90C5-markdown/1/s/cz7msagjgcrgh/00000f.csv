@@ -1,10 +1,7 @@
-"0","# Format model names in the greedy results dataframe
-for i, row in greedy_df.iterrows():
+"0","greedy_df.reset_index(inplace=True)
 "
-"2","  File ""<string>"", line 3
-    # Format model names in the greedy results dataframe
-                                                        ^
-IndentationError: expected an indented block after 'for' statement on line 1
+"2","Traceback (most recent call last):
+  File ""<string>"", line 1, in <module>
+AttributeError: 'str' object has no attribute 'reset_index'
 "
-"0","    greedy_df.at[i, 'model'] = format_model_name(row, row['model'])"
 "0",""

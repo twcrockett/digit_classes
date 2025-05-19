@@ -1,6 +1,7 @@
 "0","#| warning: false"
 "0","#| output: false"
 "0","#| echo: false"
+"0","#| eval: false"
 "0",""
 "0","# Function to perform logistic regression classification"
 "0","def logistic_regression(X_train, X_test, y_train, y_test, C):"
@@ -75,50 +76,51 @@
 "0","lr_df = calculate_selection_score(pd.DataFrame(lr_results))"
 "1","Testing Logistic Regression model with C = 0.01
 "
-"1","  Fold 1/5: Accuracy=0.9387, Precision=0.9386, Recall=0.9387, Time=0.37s
-  Fold 2/5: Accuracy=0.9376, Precision=0.9385, Recall=0.9376, Time=0.30s
+"1","  Fold 1/5: Accuracy=0.9387, Precision=0.9386, Recall=0.9387, Time=0.39s
 "
-"1","  Fold 3/5: Accuracy=0.9387, Precision=0.9386, Recall=0.9387, Time=0.28s
+"1","  Fold 2/5: Accuracy=0.9376, Precision=0.9385, Recall=0.9376, Time=0.33s
+  Fold 3/5: Accuracy=0.9387, Precision=0.9386, Recall=0.9387, Time=0.39s
 "
-"1","  Fold 4/5: Accuracy=0.9285, Precision=0.9283, Recall=0.9285, Time=0.28s
-  Fold 5/5: Accuracy=0.9398, Precision=0.9402, Recall=0.9398, Time=0.28s
-  Average: Accuracy=0.9367, Precision=0.9368, Recall=0.9367, F1=0.9367, Time=1.51s
+"1","  Fold 4/5: Accuracy=0.9285, Precision=0.9283, Recall=0.9285, Time=0.32s
+"
+"1","  Fold 5/5: Accuracy=0.9398, Precision=0.9402, Recall=0.9398, Time=0.73s
+  Average: Accuracy=0.9367, Precision=0.9368, Recall=0.9367, F1=0.9367, Time=2.16s
 Testing Logistic Regression model with C = 0.1
 "
-"1","  Fold 1/5: Accuracy=0.9484, Precision=0.9483, Recall=0.9484, Time=0.59s
+"1","  Fold 1/5: Accuracy=0.9484, Precision=0.9483, Recall=0.9484, Time=1.06s
 "
-"1","  Fold 2/5: Accuracy=0.9382, Precision=0.9384, Recall=0.9382, Time=0.52s
+"1","  Fold 2/5: Accuracy=0.9382, Precision=0.9384, Recall=0.9382, Time=1.00s
 "
-"1","  Fold 3/5: Accuracy=0.9452, Precision=0.9451, Recall=0.9452, Time=0.51s
+"1","  Fold 3/5: Accuracy=0.9452, Precision=0.9451, Recall=0.9452, Time=0.90s
 "
-"1","  Fold 4/5: Accuracy=0.9387, Precision=0.9385, Recall=0.9387, Time=0.51s
+"1","  Fold 4/5: Accuracy=0.9387, Precision=0.9385, Recall=0.9387, Time=0.86s
 "
-"1","  Fold 5/5: Accuracy=0.9398, Precision=0.9404, Recall=0.9398, Time=0.50s
-  Average: Accuracy=0.9420, Precision=0.9421, Recall=0.9420, F1=0.9421, Time=2.63s
+"1","  Fold 5/5: Accuracy=0.9398, Precision=0.9404, Recall=0.9398, Time=1.18s
+  Average: Accuracy=0.9420, Precision=0.9421, Recall=0.9420, F1=0.9421, Time=5.01s
 Testing Logistic Regression model with C = 1.0
 "
-"1","  Fold 1/5: Accuracy=0.9392, Precision=0.9391, Recall=0.9392, Time=1.00s
+"1","  Fold 1/5: Accuracy=0.9392, Precision=0.9391, Recall=0.9392, Time=2.01s
 "
-"1","  Fold 2/5: Accuracy=0.9344, Precision=0.9346, Recall=0.9344, Time=1.05s
+"1","  Fold 2/5: Accuracy=0.9344, Precision=0.9346, Recall=0.9344, Time=1.46s
 "
-"1","  Fold 3/5: Accuracy=0.9409, Precision=0.9407, Recall=0.9409, Time=1.01s
+"1","  Fold 3/5: Accuracy=0.9409, Precision=0.9407, Recall=0.9409, Time=1.22s
 "
-"1","  Fold 4/5: Accuracy=0.9263, Precision=0.9263, Recall=0.9263, Time=1.03s
+"1","  Fold 4/5: Accuracy=0.9263, Precision=0.9263, Recall=0.9263, Time=1.17s
 "
-"1","  Fold 5/5: Accuracy=0.9338, Precision=0.9341, Recall=0.9338, Time=1.04s
-  Average: Accuracy=0.9349, Precision=0.9350, Recall=0.9349, F1=0.9349, Time=5.14s
+"1","  Fold 5/5: Accuracy=0.9338, Precision=0.9341, Recall=0.9338, Time=1.07s
+  Average: Accuracy=0.9349, Precision=0.9350, Recall=0.9349, F1=0.9349, Time=6.93s
 Testing Logistic Regression model with C = 10.0
 "
-"1","  Fold 1/5: Accuracy=0.9312, Precision=0.9314, Recall=0.9312, Time=2.03s
+"1","  Fold 1/5: Accuracy=0.9312, Precision=0.9314, Recall=0.9312, Time=2.66s
 "
-"1","  Fold 2/5: Accuracy=0.9161, Precision=0.9168, Recall=0.9161, Time=2.41s
+"1","  Fold 2/5: Accuracy=0.9161, Precision=0.9168, Recall=0.9161, Time=2.90s
 "
-"1","  Fold 3/5: Accuracy=0.9274, Precision=0.9277, Recall=0.9274, Time=2.02s
+"1","  Fold 3/5: Accuracy=0.9274, Precision=0.9277, Recall=0.9274, Time=2.69s
 "
-"1","  Fold 4/5: Accuracy=0.9145, Precision=0.9144, Recall=0.9145, Time=2.92s
+"1","  Fold 4/5: Accuracy=0.9145, Precision=0.9144, Recall=0.9145, Time=2.65s
 "
-"1","  Fold 5/5: Accuracy=0.9236, Precision=0.9240, Recall=0.9236, Time=3.03s
-  Average: Accuracy=0.9226, Precision=0.9229, Recall=0.9226, F1=0.9227, Time=12.41s
+"1","  Fold 5/5: Accuracy=0.9236, Precision=0.9240, Recall=0.9236, Time=2.28s
+  Average: Accuracy=0.9226, Precision=0.9229, Recall=0.9226, F1=0.9227, Time=13.17s
 Testing Logistic Regression model with C = 100.0
 "
 "2","C:\Users\taylo\ANACON~1\Lib\site-packages\sklearn\linear_model\_logistic.py:460: ConvergenceWarning: lbfgs failed to converge (status=1):
@@ -131,7 +133,7 @@ Please also refer to the documentation for alternative solver options:
   n_iter_i = _check_optimize_"
 "2","result(
 "
-"1","  Fold 1/5: Accuracy=0.9210, Precision=0.9214, Recall=0.9210, Time=5.59s
+"1","  Fold 1/5: Accuracy=0.9210, Precision=0.9214, Recall=0.9210, Time=4.29s
 "
 "2","C:\Users\taylo\ANACON~1\Lib\site-packages\sklearn\linear_model\_logistic.py:460: ConvergenceWarning: lbfgs failed to converge (status=1):
 STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
@@ -143,7 +145,7 @@ Please also refer to the documentation for alternative solver options:
   n_iter_i = _check_optimize_"
 "2","result(
 "
-"1","  Fold 2/5: Accuracy=0.9086, Precision=0.9099, Recall=0.9086, Time=4.84s
+"1","  Fold 2/5: Accuracy=0.9086, Precision=0.9099, Recall=0.9086, Time=4.19s
 "
 "2","C:\Users\taylo\ANACON~1\Lib\site-packages\sklearn\linear_model\_logistic.py:460: ConvergenceWarning: lbfgs failed to converge (status=1):
 STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
@@ -155,7 +157,7 @@ Please also refer to the documentation for alternative solver options:
   n_iter_i = _check_optimize_"
 "2","result(
 "
-"1","  Fold 3/5: Accuracy=0.9199, Precision=0.9205, Recall=0.9199, Time=11.44s
+"1","  Fold 3/5: Accuracy=0.9199, Precision=0.9205, Recall=0.9199, Time=4.70s
 "
 "2","C:\Users\taylo\ANACON~1\Lib\site-packages\sklearn\linear_model\_logistic.py:460: ConvergenceWarning: lbfgs failed to converge (status=1):
 STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
@@ -167,7 +169,7 @@ Please also refer to the documentation for alternative solver options:
   n_iter_i = _check_optimize_"
 "2","result(
 "
-"1","  Fold 4/5: Accuracy=0.9107, Precision=0.9110, Recall=0.9107, Time=5.48s
+"1","  Fold 4/5: Accuracy=0.9107, Precision=0.9110, Recall=0.9107, Time=4.40s
 "
 "2","C:\Users\taylo\ANACON~1\Lib\site-packages\sklearn\linear_model\_logistic.py:460: ConvergenceWarning: lbfgs failed to converge (status=1):
 STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
@@ -179,6 +181,6 @@ Please also refer to the documentation for alternative solver options:
   n_iter_i = _check_optimize_"
 "2","result(
 "
-"1","  Fold 5/5: Accuracy=0.9161, Precision=0.9163, Recall=0.9161, Time=3.95s
-  Average: Accuracy=0.9153, Precision=0.9158, Recall=0.9153, F1=0.9155, Time=31.29s
+"1","  Fold 5/5: Accuracy=0.9161, Precision=0.9163, Recall=0.9161, Time=4.46s
+  Average: Accuracy=0.9153, Precision=0.9158, Recall=0.9153, F1=0.9155, Time=22.05s
 "

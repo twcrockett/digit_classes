@@ -1,1 +1,24 @@
+"0","#| warning: false"
+"0","#| output: true"
+"0","#| echo: false"
 "0",""
+"0","svm_results <- py$svm_df"
+"0","write_csv(svm_results, ""data/svm_results.csv"")"
+"0","svm_results <- read_csv(""data/svm_results.csv"")"
+"2","[1mRows: [22m[34m48[39m [1mColumns: [22m[34m9[39m"
+"2","[36m──[39m [1mColumn specification[22m [36m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m
+[1mDelimiter:[22m "",""
+[31mchr[39m (1): kernel
+[32mdbl[39m (7): C, mean_accuracy, mean_precision, mean_recall, f1_score, total_time, selection_score
+[33mlgl[39m (1): gamma"
+"2","
+[36mℹ[39m Use `spec()` to retrieve the full column specification for this data.
+[36mℹ[39m Specify the column types or set `show_col_types = FALSE` to quiet this message."
+"0","results_table("
+"0","  svm_results,"
+"0","  prefix_cols=list("
+"0","    C = colDef(name = ""C"", minWidth = 50),"
+"0","    kernel = colDef(name = ""Kernel"", minWidth = 100),"
+"0","    gamma = colDef(name = ""Gamma"", minWidth = 80)"
+"0","  )"
+"0",")"
