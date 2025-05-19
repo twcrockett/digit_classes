@@ -1,0 +1,2234 @@
+---
+title: "Homework 2: Digit Classification Models"
+author: "Taylor Crockett (7113095045)"
+format:
+  html:
+    code-overflow: wrap
+    toc: true
+    toc-location: left
+    citations-hover: false
+    theme: materia
+citation-location: margin
+bibliography: references.bib
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+```{r r-setup}
+#| warning: false
+#| output: false
+#| echo: false
+
+library(reticulate)
+library(Rdimtools)  # For importing USPS digit data
+library(tidyverse)
+library(reactable)
+library(htmltools)
+library(highcharter)
+data(usps)
+
+results_table <- function(results, best_idx=NULL, prefix_cols=NULL){
+  if (is.null(best_idx)) {best_f1_idx <- which.max(results$selection_score)}
+  
+  # Start with the standard columns for metrics
+  standard_cols <- list(
+    mean_accuracy = colDef(name = "Accuracy", minWidth = 80, format = colFormat(digits = 4)),
+    mean_precision = colDef(name = "Precision", minWidth = 80, format = colFormat(digits = 4)),
+    mean_recall = colDef(name = "Recall", minWidth = 80, format = colFormat(digits = 4)),
+    f1_score = colDef(name = "F1 Score", minWidth = 80, format = colFormat(digits = 4)),
+    total_time = colDef(name = "Time", minWidth = 80, format = colFormat(digits = 2, suffix = "s")),
+    selection_score = colDef(name = "Score", minWidth = 80, format = colFormat(digits = 4))
+  )
+  
+  # Stylize prefix columns if provided
+  if (!is.null(prefix_cols)) {
+    # Apply special styling to each prefix column
+    for (col_name in names(prefix_cols)) {
+      # Get the existing colDef
+      current_def <- prefix_cols[[col_name]]
+      
+      # Merge with new visual distinctions instead of replacing
+      current_style <- current_def$style %||% list()
+      current_header_style <- current_def$headerStyle %||% list()
+      
+      # Update with visual distinctions while preserving existing settings
+      prefix_cols[[col_name]] <- colDef(
+        name = current_def$name,
+        style = modifyList(current_style, list(
+          fontWeight = "bold",
+          background = "#f8f9fa"
+        )),
+        headerStyle = modifyList(current_header_style, list(
+          fontWeight = "bold",
+          background = "#e9ecef"
+        )),
+        # Preserve all other properties from the original colDef
+        width = current_def$width,
+        minWidth = current_def$minWidth,
+        maxWidth = current_def$maxWidth,
+        cell = current_def$cell,
+        format = current_def$format,
+        aggregate = current_def$aggregate,
+        sortable = current_def$sortable,
+        filterable = current_def$filterable,
+        resizable = current_def$resizable,
+        show = current_def$show,
+        align = current_def$align,
+        vAlign = current_def$vAlign,
+        class = current_def$class,
+        na = current_def$na,
+        footer = current_def$footer,
+        footerStyle = current_def$footerStyle,
+        html = current_def$html,
+        details = current_def$details,
+        defaultSortOrder = current_def$defaultSortOrder
+      )
+    }
+    
+    all_cols <- c(prefix_cols, standard_cols)
+  } else {
+    all_cols <- standard_cols
+  }
+  
+  reactable(results,
+    highlight = TRUE,
+    striped = TRUE,
+    bordered = TRUE,
+    theme = reactableTheme(
+      borderColor = "#ddd",
+      highlightColor = "rgba(0, 0, 0, 0.05)"
+    ),
+    columns = all_cols,
+    rowStyle = function(index) {
+      if (index == best_f1_idx) {
+        list(background = "rgba(76, 175, 80, 0.2)")
+      }
+    }
+  )
+}
+
+```
+
+```{python py-setup}
+#| warning: false
+#| output: false
+#| echo: false
+
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import KFold, ParameterGrid, StratifiedKFold
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.decomposition import TruncatedSVD
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import KBinsDiscretizer
+from sklearn.decomposition import PCA
+import tensorly as tl
+from tensorly.decomposition import tucker
+from tensorly.base import partial_unfold, fold
+import time
+from datetime import datetime
+import pandas as pd
+import seaborn as sns
+import h5py
+import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
+
+path = "data/usps.h5"
+
+with h5py.File(path, 'r') as hf:
+    train = hf.get('train')
+    X_tr = train.get('data')[:]
+    y_tr = train.get('target')[:]
+    test = hf.get('test')
+    X_te = test.get('data')[:]
+    y_te = test.get('target')[:]
+
+X = np.concatenate([X_tr, X_te], axis=0)
+y = np.concatenate([y_tr, y_te], axis=0)
+
+# X = r.usps['data']
+# y = np.array(r.usps['label']).astype(int)
+
+# all_indices = np.arange(X.shape[0])
+# np.random.shuffle(all_indices)
+# split_idx = int(.8 * X.shape[0])
+# X_train = X[all_indices[:split_idx]]
+# X_test = X[all_indices[split_idx:]]
+# y_train = y[all_indices[:split_idx]]
+# y_test = y[all_indices[split_idx:]]
+# 
+# param_grids = {
+#     'LinearRegression': {
+#         'C': [0.01, 0.1]
+#     },
+#     'SVD': {
+#         'n_components': [16],
+#         'classifier': ["residual", "SVC"]
+#     },
+#     'HOSVD': {
+#         'n_components_mode1': [4],
+#         'n_components_mode2': [4],
+#         'classifier': ["residual"]
+#     },
+#     'RandomForest': {
+#         'n_estimators': [50],
+#         'max_depth': [None],
+#         'min_samples_split': [2]
+#     },
+#     'GB': {
+#         'n_estimators': [50],
+#         'learning_rate': [0.01],
+#         'max_depth': [3]
+#     },
+#     'NaiveBayes': {
+#         'var_smoothing': [1e-9]
+#     },
+#     'SVM': {
+#         'C': [0.1],
+#         'kernel': ['linear'],
+#         'gamma': ['scale']
+#     },
+#     'KNN': {
+#         'n_neighbors': [3],
+#         'weights': ['uniform'],
+#         'p': [1, 2]
+#     },
+#     'LDA': {
+#         'solver': ['svd'],
+#         'shrinkage': [None]
+#     },
+#     'BayesianNetwork': {
+#         'n_components': [16, 32, 64],
+#         'max_iter': [10, 20, 50]
+#     },
+#     'RVM': {
+#         'kernel': ['linear', 'rbf', 'poly'],
+#         'regularization': [0.001, 0.01, 0.1, 1.0]
+#     }
+# }
+
+
+param_grids = {
+    'LinearRegression': {
+        'C': [0.01, 0.1, 1.0, 10.0, 100.0]
+    },
+    'SVD': {
+        'n_components': [8, 16, 24, 32, 40, 48, 56, 64, 96, 128],
+        'classifier': ["SVC", "residual"]
+    },
+    'HOSVD': {
+        'n_components_mode1': [12],
+        'n_components_mode2': [12],
+        'classifier': ["SVC", "residual"]
+    },
+    'RandomForest': {
+        'n_estimators': [50, 100, 200],
+        'max_depth': [None, 10, 20, 30],
+        'min_samples_split': [2, 5, 10]
+    },
+    # 'GB': {
+    #     'n_estimators': [50, 100, 200],
+    #     'learning_rate': [0.01, 0.1, 0.2],
+    #     'max_depth': [3, 5, 7]
+    # },
+    'NaiveBayes': {
+        'var_smoothing': [1e-9, 1e-8, 1e-7, 1e-6]
+    },
+    'SVM': {
+        'C': [0.1, 1, 10, 100],
+        'kernel': ['linear', 'rbf', 'poly'],
+        'gamma': ['scale', 'auto', 0.1, 0.01]
+    },
+    'KNN': {
+        'n_neighbors': [3, 5, 7, 9, 11],
+        'weights': ['uniform', 'distance'],
+        'p': [1, 2]  # p=1 for manhattan, p=2 for euclidean
+    },
+    'LDA': {
+        'solver': ['svd', 'lsqr', 'eigen'],
+        'shrinkage': [None, 'auto', 0.1, 0.5, 0.9]
+    }
+}
+
+```
+
+# The Model I Seek
+
+As I write this today, I am using a 2-year old Dell laptop with
+persistent device failure issues and a hardware-failed integrated
+graphics card. This beast in its heyday could run a nasty CNN, but now
+it whimpers booting up Minecraft. Perhaps I abused it, or perhaps Dell
+is a scam of a corporation with designed obsolescence that kicks in
+right as the year warranty expires as its proprietary bloatware locks
+and there is no way to run system checks as to why my NVIDIA suddenly
+disappeared. Who's to say.
+
+Either way, I am on a limited computational budget here, so my goal is
+to find a model that hits a very high F-1 without taking all night to
+finish on my CPU. Therefore, I've designed a selection criteria that
+rewards performance over F-1 of 90 or greater as a logistic but punishes
+slow models as an exponential:
+
+$$\text{Score} = \frac{1}{1+e^{(27-30f_{1})}}-\frac{e^{27}}{1+e^{27}}+e^{-\frac{t}{t_{m}}}$$
+
+where $t$ is in seconds, $t_{m}$ is half an hour, and a perfect model of
+$f_1=1$ and $t=0$ is $\text{Score}=1$.
+
+```{python selection_score}
+def calculate_selection_score(df):
+    t_m = 60 * 30  # 30 minutes as seconds
+    
+    df['selection_score'] = df.apply(
+        lambda row: (1 / (1 + np.exp(27 - 30 * row['f1_score']))) - 
+                   (np.exp(27) / (1 + np.exp(27))) + 
+                   np.exp(-row['total_time'] / t_m),
+        axis=1
+    )
+    
+    return df
+```
+
+# Cross-Validation to Optimize Models
+
+## What is $k$-fold cross-validation?
+
+Cross-validation (CV), and specifically $k$-fold cross-validation
+[@mosteller:1968], is a resampling method used to evaluate models. The
+data sample is split into $k$ groups in order to internally verify
+consistent results for higher reliability. Therefore I
+
+The general procedure for $k$-fold cross-validation is as follows:
+
+1.  Shuffle the dataset randomly
+2.  Split the dataset into $k$ equal-sized folds
+3.  For each unique fold:
+    a.  Take the fold as a test set
+    b.  Take the remaining folds as a training set
+    c.  Fit a model on the training set
+4.  Evaluate it on the test set
+5.  Summarize the skill of the model using the sample of model
+    evaluation scores
+
+### Parameter grid searching
+
+The best version of a model depends on its hyperparameters. Grid search
+is a systematic approach to hyperparameter tuning that works by:
+
+1.  Defining a grid of possible values for each hyperparameter
+2.  Creating all possible combinations of these values
+3.  Training and evaluating the model for each combination using
+    cross-validation
+4.  Selecting the combination that yields the best performance
+
+### What is "stratified" $k$-fold cross-validation?
+
+Stratified $k$-fold cross-validation (SKF) algorithmically maintains the
+same class distribution as the original dataset between groups. This
+helps ensure that our model evaluation is more reliable and less
+affected by sampling variability. For the sake of optimizing each model,
+I first will use SKF at $k=5$ to find ideal hyperparameters and ensure
+that the best version of each model is represented.
+
+```{python skf}
+skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=48)
+```
+
+# Baseline Linear Model
+
+## Linear Regression
+
+### Theory
+
+While linear regression is typically used for regression tasks, I adapt
+it here for classification using logistic regression with a one-vs-rest
+strategy for multi-class classification. This serves as our baseline
+model because it's fast, interpretable and is the minimum 'hurdle'
+required to pass the 'viable model' race.
+
+Logistic regression uses the logistic function to model the probability
+of a sample belonging to a particular class. This model uses a linear
+combination of features and weights, passed through the logistic
+function to produce class probabilities:
+
+$$P(y=1|x) = \frac{1}{1 + e^{-(w^T x + b)}}$$
+
+The parameter $C$ is the inverse regularization strength, When $C$ is
+large (i.e., $C=100$), regularization is weak and the model is
+potentially overfit. When $C$ is small (i.e., $C=0.01$), regularization
+is strong and the model is potentially underfit.
+
+### Results
+
+```{python linear_regression}
+#| warning: false
+#| output: false
+#| echo: false
+#| eval: false
+
+# Function to perform logistic regression classification
+def logistic_regression(X_train, X_test, y_train, y_test, C):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Train classifier
+    clf = LogisticRegression(C=C, multi_class='ovr', max_iter=1000, random_state=48)
+    clf.fit(X_train_scaled, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_scaled)
+    
+    return y_pred
+
+lr_results = []
+lr_class = []
+
+for params in ParameterGrid(param_grids["LinearRegression"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing Logistic Regression model with C = {params['C']}")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        y_pred = logistic_regression(X_train, X_test, y_train, y_test, params['C'])
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    total_time = sum(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'C': params['C'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'total_time': total_time
+    }
+    lr_results.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s")
+
+lr_df = calculate_selection_score(pd.DataFrame(lr_results))
+```
+
+```{r lr_results}
+#| warning: false
+#| output: true
+#| echo: false
+
+
+# lr_results <- py$lr_df
+# write_csv(lr_results, "data/lr_results.csv")
+lr_results <- read_csv("data/lr_results.csv")
+
+results_table(
+  lr_results,
+  prefix_cols=list(
+    C = colDef(minWidth = 40)
+  )
+)
+
+```
+
+# Dimension Reduction Models
+
+## Singular Value Decomposition (SVD)
+
+### Theory
+
+Singular Value Decomposition (SVD) decomposes a matrix into three
+matrices:
+
+$$\mathrm{X} = \mathrm{U} \Sigma \mathrm{V}^\mathrm{T}$$
+
+where:
+
+-   $\mathrm{U}$ is an orthogonal matrix containing the left singular
+    vectors
+-   $\Sigma$ is a diagonal matrix of singular values
+-   $\mathrm{V}^\mathrm{T}$ is the transpose of an orthogonal matrix
+    containing the right singular vectors
+
+SVD reduces dimensions by keeping only the top $k$ singular values and
+vectors. This creates a low-rank approximation of the original data. In
+the context of image recognition, SVD can capture the most important
+patterns in the image data while reducing noise.
+
+I use two further methods to classify based on the SVD:
+
+-   a *residual* approach, where I create separate SVD subspaces for
+    each digit class and classify by finding the digit with the minimum
+    Frobenius norm of the difference between the original sample and its
+    projection.
+-   a *support vector classification* (SVC) approach per @platt:1999
+    where SVD simply reduces dimensions before training support vectors
+    (to be explained later).
+
+### Results
+
+```{python svd}
+#| warning: false
+#| output: false
+#| echo: false
+#| eval: false
+
+def SVD_residual(X_train, X_test, y_train, y_test, n_components):
+
+    n_components = params['n_components']
+
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Group training data by digit class
+    digit_classes = np.unique(y_train)
+    class_indices = {digit: np.where(y_train == digit)[0] for digit in digit_classes}
+    
+    # Compute SVD for each digit class separately
+    class_subspaces = {}
+    for digit in digit_classes:
+        # Get data for this digit class
+        X_digit = X_train_scaled[class_indices[digit]]
+        
+        # Compute SVD for this class
+        svd_digit = TruncatedSVD(n_components=n_components)
+        svd_digit.fit(X_digit)
+        
+        # Store the SVD components and mean for this digit class
+        class_subspaces[digit] = {
+            'components': svd_digit.components_,
+            'mean': np.mean(X_digit, axis=0)
+        }
+    
+    # Function to compute Frobenius norm of residual
+    def compute_residual(x, subspace):
+        # Project the sample onto the subspace
+        components = subspace['components']
+        mean_centered_x = x - subspace['mean']
+        projection = mean_centered_x @ components.T @ components
+        
+        # Compute the residual
+        residual = mean_centered_x - projection
+        
+        # Return the Frobenius norm of the residual
+        return np.linalg.norm(residual)
+    
+    # Predict test samples using minimum residual
+    y_pred = []
+    residuals = np.zeros((X_test_scaled.shape[0], len(digit_classes)))
+    
+    for i, x in enumerate(X_test_scaled):
+        # Compute residual for each digit class
+        for j, digit in enumerate(digit_classes):
+            residuals[i, j] = compute_residual(x, class_subspaces[digit])
+        
+        # Predict the digit with minimum residual
+        y_pred.append(digit_classes[np.argmin(residuals[i])])
+    
+    # Convert to numpy array
+    y_pred = np.array(y_pred)
+    
+    return(y_pred)
+
+
+
+def SVD_SVC(X_train, X_test, y_train, y_test, n_components):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Apply SVD
+    svd = TruncatedSVD(n_components=n_components)
+    X_train_svd = svd.fit_transform(X_train_scaled)
+    X_test_svd = svd.transform(X_test_scaled)
+    
+    # Train classifier
+    clf = SVC()
+    clf.fit(X_train_svd, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_svd)
+    
+    return(y_pred)
+
+
+
+svd_results = []
+
+for params in ParameterGrid(param_grids["SVD"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing {params['classifier']} model with n_components = {params['n_components']}")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        
+        if params['classifier'] == "SVC":
+            y_pred = SVD_SVC(X_train, X_test, y_train, y_test, params['n_components'])
+        elif params['classifier'] == "residual":
+            y_pred = SVD_residual(X_train, X_test, y_train, y_test, params['n_components'])
+        else:
+            raise ValueError(f"Unknown method: {params['classifier']}")
+        
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    total_time = sum(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'classifier': params['classifier'],
+        'n_components': params['n_components'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'total_time': total_time
+    }
+    svd_results.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s")
+
+svd_df = calculate_selection_score(pd.DataFrame(svd_results))
+
+```
+
+```{r svd_results}
+#| warning: false
+#| output: true
+#| echo: false
+
+
+# svd_results <- py$svd_df
+# write_csv(svd_results, "data/svd_results.csv")
+svd_results <- read_csv("data/svd_results.csv")
+
+results_table(
+  svd_results,
+  prefix_cols=list(
+    classifier = colDef(name = "Classifier", minWidth = 80),
+    n_components = colDef(name = "k", minWidth = 40)
+  )
+)
+
+```
+
+## Higher-Order SVD (HOSVD)
+
+### Theory
+
+Higher-Order SVD (HOSVD) extends the concept of SVD to tensors
+(multi-dimensional arrays) across modes. For a 3-D tensor
+$\mathcal{X} \in \mathbb{R}^{I_1 \times I_2 \times I_3}$, HOSVD
+decomposes it as:
+
+$$\mathcal{X} \approx \mathcal{G} \times_1 U^{(1)} \times_2 U^{(2)} \times_3 U^{(3)}$$
+
+where: - $\mathcal{G} \in \mathbb{R}^{R_1 \times R_2 \times R_3}$ is the
+core tensor - $U^{(i)} \in \mathbb{R}^{I_i \times R_i}$ are the factor
+matrices - $\times_n$ denotes the n-mode product
+
+In image recognition, HOSVD will capture spatial correlations in the
+data more effectively than standard SVD. I apply the same classifier
+logic from SVD to HOSVD where there is:
+
+-   a *residual*-based approach computing reconstruction error from
+    subspace projections using Tucker methods previously outlined by
+    @kolda:2009.
+-   an *SVC* approach using HOSVD as a dimension reduction technique
+    before training a support vector model.
+
+### Results
+
+```{python hosvd}
+#| warning: false
+#| output: false
+#| echo: false
+#| eval: false
+
+
+def reshape_for_hosvd(X, img_shape=(16, 16)):
+    """Reshape flattened image data to 3D tensor (samples, height, width)"""
+    n_samples = X.shape[0]
+    return X.reshape((n_samples, img_shape[0], img_shape[1]))
+
+def hosvd_transform(X_train, X_test, n_components_modes=(10, 10)):
+    """Apply HOSVD to train data and transform test data"""
+    
+    # Reshape data to 3D tensor
+    X_train_tensor = reshape_for_hosvd(X_train)
+    X_test_tensor = reshape_for_hosvd(X_test)
+    
+    # Get tensor dimensions
+    n_samples = X_train_tensor.shape[0]  # Mode 0 dimension (samples)
+    n_features_1 = X_train_tensor.shape[1]  # Mode 1 dimension
+    n_features_2 = X_train_tensor.shape[2]  # Mode 2 dimension
+    
+    # Set up consistent ranks for all modes
+    # (Modes are zero-indexed in the rank parameter)
+    rank = [n_samples,  # Mode 0 (samples) rank
+            min(n_features_1, n_components_modes[0]),  # Mode 1 feature rank
+            min(n_features_2, n_components_modes[1])]  # Mode 2 feature rank
+    
+    # Perform Tucker decomposition
+    core, factors = tucker(X_train_tensor, rank=rank)
+    
+    # Take appropriate subset of factors
+    factors_subset = factors.copy()
+    factors_subset[0] = factors_subset[0][:X_test_tensor.shape[0],:X_test_tensor.shape[0]]
+    X_train_hosvd = tl.tucker_to_tensor((core, factors))
+    spatial_modes = list(range(1, tl.ndim(X_test_tensor)))
+    X_test_projected = X_test_tensor.copy()
+    
+    # Project to factor space for spatial dimensions
+    for mode in spatial_modes:
+        X_test_projected = tl.tenalg.mode_dot(X_test_projected, factors[mode].T, mode)
+    
+    # Project back to original space for spatial dimensions
+    X_test_hosvd = X_test_projected.copy()
+    for mode in spatial_modes:
+        X_test_hosvd = tl.tenalg.mode_dot(X_test_hosvd, factors[mode], mode)
+        
+    return X_train_hosvd, X_test_hosvd, factors
+
+def HOSVD_residual(X_train, X_test, y_train, y_test, n_components_modes):
+    """
+    HOSVD-based classifier that uses minimum residual for prediction
+    """
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Reshape to tensor format
+    X_train_tensor = reshape_for_hosvd(X_train_scaled)
+    X_test_tensor = reshape_for_hosvd(X_test_scaled)
+    
+    # Group training data by digit class
+    digit_classes = np.unique(y_train)
+    class_indices = {digit: np.where(y_train == digit)[0] for digit in digit_classes}
+    
+    # Compute HOSVD for each digit class separately
+    class_subspaces = {}
+    for digit in digit_classes:
+        # Get data for this digit class
+        X_digit = X_train_scaled[class_indices[digit]]
+        X_digit_tensor = reshape_for_hosvd(X_digit)
+        
+        # Compute mean for this class
+        digit_mean = np.mean(X_digit_tensor, axis=0)
+        
+        # Center the data
+        X_digit_centered = X_digit_tensor - digit_mean
+        
+        # Get tensor dimensions for this class
+        n_samples_digit = X_digit_centered.shape[0]
+        n_features_1 = X_digit_centered.shape[1]
+        n_features_2 = X_digit_centered.shape[2]
+        
+        # Set up ranks for modes
+        rank = [
+            n_samples_digit,  # Mode 0 (samples) rank
+            min(n_features_1, n_components_modes[0]),  # Mode 1 feature rank
+            min(n_features_2, n_components_modes[1])   # Mode 2 feature rank
+        ]
+        
+        # Perform Tucker decomposition for this class
+        core, factors = tucker(X_digit_centered, rank=rank)
+        
+        # Store the HOSVD components and mean for this digit class
+        class_subspaces[digit] = {
+            'core': core,
+            'factors': factors,
+            'mean': digit_mean
+        }
+    
+    # Function to compute Frobenius norm of residual for HOSVD
+    def compute_hosvd_residual(x_tensor, subspace):
+        # Center the test sample
+        mean_centered_x = x_tensor - subspace['mean']
+        
+        # Project to factor space for spatial dimensions
+        spatial_modes = [1]
+        projected = mean_centered_x.copy()
+        
+        # Project to factor space
+        for mode in spatial_modes:
+            projected = tl.tenalg.mode_dot(projected, subspace['factors'][mode].T, mode)
+        
+        # Project back to original space
+        reconstruction = projected.copy()
+        for mode in spatial_modes:
+            reconstruction = tl.tenalg.mode_dot(reconstruction, subspace['factors'][mode], mode)
+        
+        # Compute the residual
+        residual = mean_centered_x - reconstruction
+        
+        # Return the Frobenius norm of the residual
+        return tl.norm(residual)
+    
+    # Predict test samples using minimum residual
+    y_pred = []
+    residuals = np.zeros((X_test_tensor.shape[0], len(digit_classes)))
+    
+    for i, x in enumerate(X_test_tensor):
+        # Compute residual for each digit class
+        for j, digit in enumerate(digit_classes):
+            residuals[i, j] = compute_hosvd_residual(x, class_subspaces[digit])
+        
+        # Predict the digit with minimum residual
+        y_pred.append(digit_classes[np.argmin(residuals[i])])
+    
+    # Convert to numpy array
+    y_pred = np.array(y_pred)
+    
+    return y_pred
+
+def HOSVD_SVC(X_train, X_test, y_train, y_test, n_components_modes):
+    """
+    HOSVD-based classifier that uses SVC on transformed features
+    """
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Reshape to tensor format
+    X_train_tensor = reshape_for_hosvd(X_train_scaled)
+    X_test_tensor = reshape_for_hosvd(X_test_scaled)
+    
+    # Apply HOSVD transformation
+    _, _, factors = hosvd_transform(X_train_scaled, X_test_scaled, n_components_modes)
+    
+    # Project training data to lower-dimensional space
+    X_train_projected = X_train_tensor.copy()
+    for mode in [1, 2]:  # Spatial modes
+        X_train_projected = tl.tenalg.mode_dot(X_train_projected, factors[mode].T, mode)
+    
+    # Project test data to lower-dimensional space
+    X_test_projected = X_test_tensor.copy()
+    for mode in [1, 2]:  # Spatial modes
+        X_test_projected = tl.tenalg.mode_dot(X_test_projected, factors[mode].T, mode)
+    
+    # Flatten the projected tensors for SVC
+    X_train_flat = X_train_projected.reshape(X_train_projected.shape[0], -1)
+    X_test_flat = X_test_projected.reshape(X_test_projected.shape[0], -1)
+    
+    # Train classifier
+    clf = SVC()
+    clf.fit(X_train_flat, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_flat)
+    
+    return y_pred
+
+hosvd_results = []
+
+for params in ParameterGrid(param_grids["HOSVD"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    if params['n_components_mode1'] != params['n_components_mode2']:
+      pass
+    
+    print(f"Testing {params['classifier']} model with components ({params['n_components_mode1']}, {params['n_components_mode2']})")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        
+        if params['classifier'] == "SVC":
+            n_components_modes = (params['n_components_mode1'], params['n_components_mode2'])
+            y_pred = HOSVD_SVC(X_train, X_test, y_train, y_test, n_components_modes)
+        elif params['classifier'] == "residual":
+            n_components_modes = (params['n_components_mode1'], params['n_components_mode2'])
+            y_pred = HOSVD_residual(X_train, X_test, y_train, y_test, n_components_modes)
+        else:
+            raise ValueError(f"Unknown method: {params['classifier']}")
+        
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    total_time = sum(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'classifier': params['classifier'],
+        'n_components_mode1': params['n_components_mode1'],
+        'n_components_mode2': params['n_components_mode2'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'total_time': total_time
+    }
+    hosvd_results.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s")
+
+hosvd_df = calculate_selection_score(pd.DataFrame(hosvd_results))
+
+```
+
+```{r hosvd_results}
+#| warning: false
+#| output: true
+#| echo: false
+
+# hosvd_results <- py$hosvd_df
+# write_csv(hosvd_results, "data/hosvd_results.csv")
+hosvd_results <- read_csv("data/hosvd_results.csv")
+
+results_table(
+  hosvd_results,
+  prefix_cols=list(
+    classifier = colDef(name = "Classifier", minWidth = 80),
+    n_components_mode1 = colDef(name = "r1", minWidth = 50),
+    n_components_mode2 = colDef(name = "r2", minWidth = 50)
+  )
+)
+
+```
+
+## Linear Discriminant Analysis (LDA)
+
+### Theory
+
+Linear discriminant analysis (LDA) is a dimensionality reduction
+technique that also serves as a classifier. While principal component
+analysis maximizes variance without considering class labels, LDA is a
+supervised method that finds a linear combination of features that
+characterizes or separates two or more classes.
+
+The key objectives of LDA are:
+
+1.  Maximize the distance between means of different classes
+2.  Minimize the variation within each class
+
+Mathematically, LDA seeks to find a projection that maximizes the ratio
+of between-class scatter to within-class scatter:
+
+$J(w) = \frac{w^T S_B w}{w^T S_W w}$
+
+Where:
+
+-   $S_B$ is the between-class scatter matrix
+-   $S_W$ is the within-class scatter matrix
+-   $w$ is the projection vector
+
+### Results
+
+```{python lda}
+#| warning: false
+#| output: false
+#| echo: false
+#| eval: false
+
+def lda_classifier(X_train, X_test, y_train, y_test, solver, shrinkage):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Train LDA classifier
+    clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage)
+    clf.fit(X_train_scaled, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_scaled)
+    
+    return y_pred
+
+lda_results = []
+
+for params in ParameterGrid(param_grids["LDA"]):
+    if params['solver'] == 'svd' and params['shrinkage'] is not None:
+      continue
+  
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing LDA model with solver={params['solver']}, shrinkage={params['shrinkage']}")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        y_pred = lda_classifier(X_train, X_test, y_train, y_test, params['solver'], params['shrinkage'])
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    total_time = sum(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'solver': params['solver'],
+        'shrinkage': params['shrinkage'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'total_time': total_time
+    }
+    lda_results.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s")
+
+lda_df = calculate_selection_score(pd.DataFrame(lda_results))
+```
+
+```{r lda_results}
+#| warning: false
+#| output: true
+#| echo: false
+
+# lda_results <- py$lda_df
+# write_csv(lda_results, "data/lda_results.csv")
+lda_results <- read_csv("data/lda_results.csv")
+
+results_table(
+  lda_results,
+  prefix_cols=list(
+    solver = colDef(name = "Solver"),
+    shrinkage = colDef(name = "Shrinkage")
+  )
+)
+
+```
+
+# Distance-Based Methods
+
+## K-Nearest Neighbors (KNN)
+
+### Theory
+
+K-nearest neighbors (KNN) is a non-parametric learning algorithm. Rather
+than building an explicit model, KNN classifies a new instance by
+finding the $k$ nearest training examples in the feature space and
+assigning the most common class among these neighbors. For digit
+classification, KNN considers the pixel values as a high-dimensional
+feature vector and calculates distances between test samples and all
+training samples. The main parameters I'll tune are:
+
+-   number of neighbors $k$
+-   a chosen distance metric (Manhattan or Euclidean)
+-   weighting scheme for neighbors (uniform or distance-based)
+
+### Results
+
+```{python knn}
+#| warning: false
+#| output: false
+#| echo: false
+#| eval: false
+
+def knn_classifier(X_train, X_test, y_train, y_test, n_neighbors, weights, p):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Train KNN classifier
+    clf = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights, p=p, n_jobs=-1)
+    clf.fit(X_train_scaled, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_scaled)
+    
+    return y_pred
+
+knn_results = []
+
+for params in ParameterGrid(param_grids["KNN"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing KNN model with n_neighbors={params['n_neighbors']}, weights={params['weights']}, p={params['p']}")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        y_pred = knn_classifier(X_train, X_test, y_train, y_test, params['n_neighbors'], params['weights'], params['p'])
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    total_time = sum(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'n_neighbors': params['n_neighbors'],
+        'weights': params['weights'],
+        'p': params['p'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'total_time': total_time
+    }
+    knn_results.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s")
+
+knn_df = calculate_selection_score(pd.DataFrame(knn_results))
+```
+
+```{r knn_results}
+#| warning: false
+#| output: true
+#| echo: false
+
+# knn_results <- py$knn_df
+# write_csv(knn_results, "data/knn_results.csv")
+knn_results <- read_csv("data/knn_results.csv")
+
+results_table(
+  knn_results,
+  prefix_cols=list(
+    n_neighbors = colDef(name = "k", minWidth = 50),
+    weights = colDef(name = "Weights"),
+    p = colDef(name = "Distance")
+  )
+)
+```
+
+# Decision Tree-Based Methods
+
+## Random Foresting
+
+### Theory
+
+Decision trees often run into overfitting issues by going too far down a
+certain decision path when a better one might exist. Random foresting
+[@breiman:2001] constructs multiple decision trees during training and
+combats overfitting by:
+
+1.  training each tree on a random subset of the data (bootstrap
+    aggregating or "bagging").
+2.  using a random subset of features when splitting nodes.
+
+In the context of a flattened tensor, each decision tree determines
+which pixel positions are most discriminative for classification. When
+classifying, each tree in the forest makes its own prediction based on
+the pixel values it considers important, and the final prediction is
+determined by majority vote. I will tune the random forest model
+through:
+
+-   $n_e$ number of trees in the forest that improves predictions but
+    adds computational weight at diminishing return.
+-   max depth of decision tree growth.
+-   minimum number of samples required to split an internal node where
+    higher values create more conservative trees that will be less
+    distracted by noise.
+
+### Implementation
+
+```{python random_forest}
+#| warning: false
+#| output: false
+#| echo: false
+#| eval: false
+
+def random_forest(X_train, X_test, y_train, y_test, n_estimators, max_depth, min_samples_split):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    if isinstance(max_depth, float):
+        max_depth = int(max_depth)
+    
+    # Train Random Forest classifier
+    clf = RandomForestClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        min_samples_split=min_samples_split,
+        random_state=48,
+        n_jobs=-1 
+    )
+    clf.fit(X_train_scaled, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_scaled)
+    
+    return y_pred
+
+rf_results = []
+
+for params in ParameterGrid(param_grids["RandomForest"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing Random Forest model with n_estimators={params['n_estimators']}, max_depth={params['max_depth']}, min_samples_split={params['min_samples_split']}")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        y_pred = random_forest(
+            X_train, X_test, y_train, y_test, 
+            params['n_estimators'], params['max_depth'], params['min_samples_split']
+        )
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    total_time = sum(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'n_estimators': params['n_estimators'],
+        'max_depth': params['max_depth'],
+        'min_samples_split': params['min_samples_split'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'total_time': total_time
+    }
+    rf_results.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s")
+
+rf_df = calculate_selection_score(pd.DataFrame(rf_results))
+```
+
+```{r rf_results}
+#| warning: false
+#| output: true
+#| echo: false
+
+# rf_results <- py$rf_df
+# write_csv(rf_results, "data/rf_results.csv")
+rf_results <- read_csv("data/rf_results.csv")
+
+results_table(
+  rf_results,
+  prefix_cols=list(
+    n_estimators = colDef(name = "Trees"),
+    max_depth = colDef(name = "Max. depth"),
+    min_samples_split = colDef(name = "Min. split")
+  )
+)
+
+```
+
+<!-- ## Gradient Boosting -->
+
+<!-- Gradient boosting is another tree-based method, but unlike random -->
+<!-- foresting, which trains trees independently, gradient boosting trains -->
+<!-- trees sequentially where each tree corrects the errors made by the -->
+<!-- previous ones in a "gradient descent" using a loss function. I will tune -->
+<!-- it through: -->
+
+<!-- -   $n_e$ number of trees, like random forests. -->
+<!-- -   learning rate, which changes how much each additional tree adds to -->
+<!--     the model. -->
+<!-- -   maximum depth, like random forests. -->
+
+<!-- ```{python gb} -->
+<!-- #| warning: false -->
+<!-- #| output: false -->
+<!-- #| echo: false -->
+
+<!-- def gradient_boosting(X_train, X_test, y_train, y_test, n_estimators, learning_rate, max_depth): -->
+<!--     # Scale data -->
+<!--     scaler = StandardScaler() -->
+<!--     X_train_scaled = scaler.fit_transform(X_train) -->
+<!--     X_test_scaled = scaler.transform(X_test) -->
+
+<!--     # Train Gradient Boosting classifier -->
+<!--     clf = GradientBoostingClassifier( -->
+<!--         n_estimators=n_estimators, -->
+<!--         learning_rate=learning_rate, -->
+<!--         max_depth=max_depth, -->
+<!--         random_state=48 -->
+<!--     ) -->
+<!--     clf.fit(X_train_scaled, y_train) -->
+
+<!--     # Predict -->
+<!--     y_pred = clf.predict(X_test_scaled) -->
+
+<!--     return y_pred -->
+
+<!-- gb_results = [] -->
+
+<!-- for params in ParameterGrid(param_grids["GB"]): -->
+<!--     # Track metrics across folds -->
+<!--     fold_accuracies = [] -->
+<!--     fold_precisions = [] -->
+<!--     fold_recalls = [] -->
+<!--     fold_times = [] -->
+
+<!--     print(f"Testing GB model with n_estimators={params['n_estimators']}, learning_rate={params['learning_rate']}, max_depth={params['max_depth']}") -->
+
+<!--     # Perform k-fold cross-validation -->
+<!--     for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)): -->
+<!--         X_train, X_test = X[train_idx], X[test_idx] -->
+<!--         y_train, y_test = y[train_idx], y[test_idx] -->
+
+<!--         start_time = time.time() -->
+<!--         y_pred = gradient_boosting( -->
+<!--             X_train, X_test, y_train, y_test,  -->
+<!--             params['n_estimators'], params['learning_rate'], params['max_depth'] -->
+<!--         ) -->
+<!--         elapsed_time = time.time() - start_time -->
+<!--         fold_times.append(elapsed_time) -->
+
+<!--         accuracy = accuracy_score(y_test, y_pred) -->
+<!--         report = classification_report(y_test, y_pred, output_dict=True) -->
+<!--         precision = report['weighted avg']['precision'] -->
+<!--         recall = report['weighted avg']['recall'] -->
+
+<!--         # Store results for this fold -->
+<!--         fold_accuracies.append(accuracy) -->
+<!--         fold_precisions.append(precision) -->
+<!--         fold_recalls.append(recall) -->
+
+<!--         print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s") -->
+
+<!--     # Compute average metrics across all folds -->
+<!--     mean_accuracy = np.mean(fold_accuracies) -->
+<!--     mean_precision = np.mean(fold_precisions) -->
+<!--     mean_recall = np.mean(fold_recalls) -->
+<!--     total_time = sum(fold_times) -->
+<!--     f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall) -->
+
+<!--     # Store results for this parameter combination -->
+<!--     result = { -->
+<!--         'n_estimators': params['n_estimators'], -->
+<!--         'learning_rate': params['learning_rate'], -->
+<!--         'max_depth': params['max_depth'], -->
+<!--         'mean_accuracy': mean_accuracy, -->
+<!--         'mean_precision': mean_precision, -->
+<!--         'mean_recall': mean_recall, -->
+<!--         'f1_score': f1_score, -->
+<!--         'total_time': total_time -->
+<!--     } -->
+<!--     gb_results.append(result) -->
+
+<!--     print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s") -->
+
+<!-- gb_df = calculate_selection_score(pd.DataFrame(pd.DataFrame(gb_results))) -->
+<!-- ``` -->
+
+<!-- ```{r gb_results} -->
+<!-- #| warning: false -->
+<!-- #| output: true -->
+<!-- #| echo: false -->
+
+<!-- gb_results <- py$gb_df -->
+
+<!-- results_table( -->
+<!--   gb_results, -->
+<!--   prefix_cols=list( -->
+<!--     n_estimators = colDef(name = "Trees", minWidth = 80), -->
+<!--     max_depth = colDef(name = "Max. depth"), -->
+<!--     learning_rate = colDef(name = "Learning rate") -->
+<!--   ) -->
+<!-- ) -->
+
+<!-- ``` -->
+
+# Probabilistic Models
+
+## Naive Bayes
+
+### Theory
+
+Naive Bayes classifiers are a family of simple probabilistic classifiers
+based on applying Bayes' theorem with strong (naive) independence
+assumptions between the features. I'm a social scientist so I had to do
+one. Despite their simplicity, they often perform surprisingly well in
+many real-world situations, especially in text classification and other
+high-dimensional problems.
+
+The key idea behind Naive Bayes is to use the joint probabilities of
+features and labels to estimate the probability of a label given the
+features:
+
+$P(y|x_1, x_2, ..., x_n) \propto P(y) \prod_{i=1}^{n} P(x_i|y)$
+
+Where: - $P(y|x_1, x_2, ..., x_n)$ is the posterior probability of class
+$y$ given features $(x_1, x_2, ..., x_n)$ - $P(y)$ is the prior
+probability of class $y$ - $P(x_i|y)$ is the likelihood of feature $x_i$
+given class $y$
+
+For digit classification, I'm using Gaussian naive Bayes, which assumes
+that features follow a normal distribution within each class.
+
+### Implementation
+
+```{python naive_bayes}
+#| warning: false
+#| output: false
+#| echo: false
+#| eval: false
+
+def naive_bayes(X_train, X_test, y_train, y_test, var_smoothing):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Train Gaussian Naive Bayes classifier
+    clf = GaussianNB(var_smoothing=var_smoothing)
+    clf.fit(X_train_scaled, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_scaled)
+    
+    return y_pred
+
+nb_results = []
+
+for params in ParameterGrid(param_grids["NaiveBayes"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing Naive Bayes model with var_smoothing={params['var_smoothing']}")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        y_pred = naive_bayes(X_train, X_test, y_train, y_test, params['var_smoothing'])
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    total_time = sum(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'var_smoothing': params['var_smoothing'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'total_time': total_time
+    }
+    nb_results.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s")
+
+nb_df = calculate_selection_score(pd.DataFrame(nb_results))
+```
+
+```{r nb_results}
+#| warning: false
+#| output: true
+#| echo: false
+
+nb_results <- py$nb_df
+# write_csv(nb_results, "data/nb_results.csv")
+nb_results <- read_csv("data/nb_results.csv")
+
+results_table(
+  nb_results,
+  prefix_cols=list(
+    var_smoothing = colDef(name = "Smoothing")
+  )
+)
+
+```
+
+<!-- ## Bayesian Networks -->
+
+<!-- ### Theory -->
+
+<!-- Bayesian networks (BN) are probabilistic graphical models that represent a set of variables and their conditional dependencies via a directed acyclic graph (DAG). Unlike naive Bayes, which assumes all features are conditionally independent given the class (a bit naive), Bayesian networks can capture complex dependencies between features. -->
+
+<!-- In the context of digit recognition, a Bayesian Network can model relationships between specific regions of the digit image. For example, the presence of certain pixel patterns in one region may influence the likelihood of patterns in another region. -->
+
+<!-- For implementation, I'll use the `pgmpy` library which provides tools for working with probabilistic graphical models. -->
+
+<!-- ### Results -->
+
+```{python bayes_network}
+#| warning: false
+#| output: false
+#| echo: false
+
+# def bayesian_network(X_train, X_test, y_train, y_test, n_components, max_iter):
+#     # Scale data
+#     scaler = StandardScaler()
+#     X_train_scaled = scaler.fit_transform(X_train)
+#     X_test_scaled = scaler.transform(X_test)
+#     
+#     # We need to discretize the continuous data for Bayesian Network
+#     # Use PCA to reduce dimensionality first
+#     pca = PCA(n_components=min(n_components, X_train_scaled.shape[1]))
+#     X_train_reduced = pca.fit_transform(X_train_scaled)
+#     X_test_reduced = pca.transform(X_test_scaled)
+#     
+#     # Discretize the reduced data
+#     discretizer = KBinsDiscretizer(n_bins=5, encode='ordinal', strategy='quantile')
+#     X_train_discrete = discretizer.fit_transform(X_train_reduced).astype(int)
+#     X_test_discrete = discretizer.transform(X_test_reduced).astype(int)
+#     
+#     # Create DataFrame for pgmpy
+#     feature_names = [f'f{i}' for i in range(X_train_discrete.shape[1])]
+#     train_df = pd.DataFrame(X_train_discrete, columns=feature_names)
+#     train_df['class'] = y_train
+#     
+#     test_df = pd.DataFrame(X_test_discrete, columns=feature_names)
+#     
+#     # Initialize Bayesian Network model
+#     model = BayesianNetwork()
+#     
+#     # Add nodes (variables)
+#     model.add_nodes_from(feature_names + ['class'])
+#     
+#     # Learn structure (edges) using Hill Climb Search
+#     # First add edges from class to all features (naive Bayes-like)
+#     for feature in feature_names:
+#         model.add_edge('class', feature)
+#     
+#     # Learn additional edges between features
+#     partial_edges = []
+#     for i in range(len(feature_names)):
+#         for j in range(i+1, len(feature_names)):
+#             # Limit potential edges to manage complexity
+#             if np.random.random() < 0.1:  # Only consider 10% of possible feature pairs
+#                 f1, f2 = feature_names[i], feature_names[j]
+#                 partial_edges.append((f1, f2))
+#     
+#     # Try adding these edges if they improve model score
+#     from pgmpy.estimators import HillClimbSearch, BicScore
+#     hc = HillClimbSearch(train_df)
+#     
+#     # Start from naive Bayes structure and refine
+#     best_model = hc.hill_climb(
+#         start_dag=model,
+#         scoring_method=BicScore(train_df),
+#         max_iter=max_iter,
+#         white_list=partial_edges  # Only consider these additional edges
+#     )
+#     
+#     # Estimate parameters (CPDs)
+#     from pgmpy.estimators import MaximumLikelihoodEstimator
+#     model = BayesianNetwork(best_model.edges())
+#     model.fit(train_df, estimator=MaximumLikelihoodEstimator)
+#     
+#     # Perform inference to get predictions
+#     from pgmpy.inference import VariableElimination
+#     inference = VariableElimination(model)
+#     
+#     # Predict for each test instance
+#     y_pred = []
+#     for i in range(len(X_test_discrete)):
+#         evidence = {f: X_test_discrete[i, j] for j, f in enumerate(feature_names)}
+#         result = inference.query(variables=['class'], evidence=evidence)
+#         pred_class = np.argmax(result.values)
+#         y_pred.append(pred_class)
+#     
+#     return np.array(y_pred)
+# 
+# bn_results = []
+# 
+# for params in ParameterGrid(param_grids["BayesianNetwork"]):
+#     # Track metrics across folds
+#     fold_accuracies = []
+#     fold_precisions = []
+#     fold_recalls = []
+#     fold_times = []
+#     
+#     print(f"Testing Bayesian Network model with n_components={params['n_components']}, max_iter={params['max_iter']}")
+#     
+#     # Perform k-fold cross-validation
+#     for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+#         X_train, X_test = X[train_idx], X[test_idx]
+#         y_train, y_test = y[train_idx], y[test_idx]
+#         
+#         start_time = time.time()
+#         y_pred = bayesian_network(
+#             X_train, X_test, y_train, y_test, 
+#             params['n_components'], params['max_iter']
+#         )
+#         elapsed_time = time.time() - start_time
+#         fold_times.append(elapsed_time)
+#         
+#         accuracy = accuracy_score(y_test, y_pred)
+#         report = classification_report(y_test, y_pred, output_dict=True)
+#         precision = report['weighted avg']['precision']
+#         recall = report['weighted avg']['recall']
+#         
+#         # Store results for this fold
+#         fold_accuracies.append(accuracy)
+#         fold_precisions.append(precision)
+#         fold_recalls.append(recall)
+#         
+#         print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+#     
+#     # Compute average metrics across all folds
+#     mean_accuracy = np.mean(fold_accuracies)
+#     mean_precision = np.mean(fold_precisions)
+#     mean_recall = np.mean(fold_recalls)
+#     total_time = sum(fold_times)
+#     f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+#     
+#     # Store results for this parameter combination
+#     result = {
+#         'n_components': params['n_components'],
+#         'max_iter': params['max_iter'],
+#         'mean_accuracy': mean_accuracy,
+#         'mean_precision': mean_precision,
+#         'mean_recall': mean_recall,
+#         'f1_score': f1_score,
+#         'total_time': total_time
+#     }
+#     bn_results.append(result)
+#     
+#     print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s")
+# 
+# bn_df = calculate_selection_score(pd.DataFrame(bn_results))
+```
+
+```{r bn_results}
+# #| warning: false
+# #| output: true
+# #| echo: false
+# 
+# bn_results <- py$bn_df
+# 
+# results_table(
+#   bn_results,
+#   prefix_cols=list(
+#     n_components = colDef(name = "n_comp"),
+#     max_iter = colDef(name = "Max. iter.")
+#   )
+# )
+
+```
+
+# Kernel-based Methods
+
+## Support Vector Machine (SVM)
+
+### Theory
+
+Support vector machines (SVM) try to find an optimal hyperplane that
+maximizes the distance between the hyperplane and the nearest data
+points from each class, which are called support vectors. For
+non-linearly separable data, SVM uses kernel functions to implicitly map
+the input features to higher-dimensional spaces. Common kernel functions
+include: - Linear: $K(x, y) = x^T y$ - Polynomial:
+$K(x, y) = (\gamma x^T y + r)^d$ - Radial basis function (RBF):
+$K(x, y) = \exp(-\gamma ||x - y||^2)$
+
+### Results
+
+```{python svm}
+#| warning: false
+#| output: false
+#| echo: false
+
+def svm_classifier(X_train, X_test, y_train, y_test, C, kernel, gamma):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Train SVM classifier
+    clf = SVC(C=C, kernel=kernel, gamma=gamma, random_state=48)
+    clf.fit(X_train_scaled, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_scaled)
+    
+    return y_pred
+
+svm_results = []
+
+for params in ParameterGrid(param_grids["SVM"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing SVM model with C={params['C']}, kernel={params['kernel']}, gamma={params['gamma']}")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        y_pred = svm_classifier(X_train, X_test, y_train, y_test, params['C'], params['kernel'], params['gamma'])
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    total_time = sum(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'C': params['C'],
+        'kernel': params['kernel'],
+        'gamma': params['gamma'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'total_time': total_time
+    }
+    svm_results.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s")
+
+svm_df = calculate_selection_score(pd.DataFrame(svm_results))
+```
+
+```{r svm_results}
+#| warning: false
+#| output: true
+#| echo: false
+
+svm_results <- py$svm_df
+
+results_table(
+  svm_results,
+  prefix_cols=list(
+    C = colDef(name = "C", minWidth = 50),
+    kernel = colDef(name = "Kernel", minWidth = 100),
+    gamma = colDef(name = "Gamma", minWidth = 80)
+  )
+)
+
+```
+
+<!-- ## Relevance Vector Machine (RVM) -->
+
+<!-- ### Theory -->
+
+<!-- Relevance vector machines (RVM) are a Bayesian sparse kernel method similar to SVM but providing probabilistic classification. Developed by @tipping:2001, RVM uses Bayesian inference to obtain sparse solutions for regression and classification. -->
+
+<!-- Key advantages of RVM over SVM include: -->
+
+<!-- 1.    It provides probabilistic predictions rather than just class labels. -->
+
+<!-- 2.    It typically results in much sparser models (fewer relevance vectors). -->
+
+<!-- 3.    It doesn't require a separate validation set to determine regularization parameters. -->
+
+<!-- 4.    Kernel functions don't need to satisfy Mercer's condition. -->
+
+```{python rvm}
+#| warning: false
+#| output: false
+#| echo: false
+# 
+# def rvm_classifier(X_train, X_test, y_train, y_test, kernel, regularization):
+#     # Scale data
+#     scaler = StandardScaler()
+#     X_train_scaled = scaler.fit_transform(X_train)
+#     X_test_scaled = scaler.transform(X_test)
+#     
+#     # Implement RVM using scikit-learn-compatible API
+#     from skrvm import RVC
+#     
+#     # Map kernel string to parameters
+#     if kernel == 'rbf':
+#         clf = RVC(kernel='rbf', gamma=0.1, alpha=regularization)
+#     elif kernel == 'linear':
+#         clf = RVC(kernel='linear', alpha=regularization)
+#     elif kernel == 'poly':
+#         clf = RVC(kernel='poly', degree=3, alpha=regularization)
+#     
+#     # Train the classifier
+#     clf.fit(X_train_scaled, y_train)
+#     
+#     # Predict
+#     y_pred = clf.predict(X_test_scaled)
+#     
+#     return y_pred
+# 
+# rvm_results = []
+# 
+# for params in ParameterGrid(param_grids["RVM"]):
+#     # Track metrics across folds
+#     fold_accuracies = []
+#     fold_precisions = []
+#     fold_recalls = []
+#     fold_times = []
+#     
+#     print(f"Testing RVM model with kernel={params['kernel']}, regularization={params['regularization']}")
+#     
+#     # Perform k-fold cross-validation
+#     for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+#         X_train, X_test = X[train_idx], X[test_idx]
+#         y_train, y_test = y[train_idx], y[test_idx]
+#         
+#         start_time = time.time()
+#         y_pred = rvm_classifier(
+#             X_train, X_test, y_train, y_test, 
+#             params['kernel'], params['regularization']
+#         )
+#         elapsed_time = time.time() - start_time
+#         fold_times.append(elapsed_time)
+#         
+#         accuracy = accuracy_score(y_test, y_pred)
+#         report = classification_report(y_test, y_pred, output_dict=True)
+#         precision = report['weighted avg']['precision']
+#         recall = report['weighted avg']['recall']
+#         
+#         # Store results for this fold
+#         fold_accuracies.append(accuracy)
+#         fold_precisions.append(precision)
+#         fold_recalls.append(recall)
+#         
+#         print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+#     
+#     # Compute average metrics across all folds
+#     mean_accuracy = np.mean(fold_accuracies)
+#     mean_precision = np.mean(fold_precisions)
+#     mean_recall = np.mean(fold_recalls)
+#     total_time = sum(fold_times)
+#     f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+#     
+#     # Store results for this parameter combination
+#     result = {
+#         'kernel': params['kernel'],
+#         'regularization': params['regularization'],
+#         'mean_accuracy': mean_accuracy,
+#         'mean_precision': mean_precision,
+#         'mean_recall': mean_recall,
+#         'f1_score': f1_score,
+#         'total_time': total_time
+#     }
+#     rvm_results.append(result)
+#     
+#     print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s")
+# 
+# rvm_df = calculate_selection_score(pd.DataFrame(rvm_results))
+```
+
+```{r rvm_results}
+#| warning: false
+#| output: true
+#| echo: false
+
+# rvm_results <- py$rvm_df
+# 
+# results_table(
+#   rvm_results,
+#   prefix_cols=list(
+#     kernel = colDef(name = "Kernel", minWidth = 100),
+#     regularization = colDef(name = "Regularization", minWidth = 100)
+#   )
+# )
+
+```
+
+# Cross-Validation to Select Best Model
+
+## What is "greedy" $k$-fold cross-validation?
+
+Earlier, I used a stratified CV method, which was good at finding
+optimal hyperparameters because \_\_\_
+
+This time, I'm using a different approach called a "greedy" $k$-fold
+cross-validation that works by:
+
+1.  starting with an empty ensemble,
+2.  iteratively adding the model that provides the best performance
+    improvement,
+3.  stopping when no further improvement is achieved.
+
+It's particularly good at comparing a diverse set of models and
+achieving the highest performance \[soper:2021\].
+
+## Final results
+
+```{python greedy}
+#| warning: false
+#| output: false
+
+# Find the best configuration for each model family
+best_configs = {
+    'LogisticRegression': lr_df.loc[lr_df['selection_score'].idxmax()].to_dict(),
+    'SVD': svd_df.loc[svd_df['selection_score'].idxmax()].to_dict(),
+    'HOSVD': hosvd_df.loc[hosvd_df['selection_score'].idxmax()].to_dict(),
+    'LDA': lda_df.loc[lda_df['selection_score'].idxmax()].to_dict(),
+    'RandomForest': rf_df.loc[rf_df['selection_score'].idxmax()].to_dict(),
+    # 'GradientBoosting': gb_df.loc[gb_df['selection_score'].idxmax()].to_dict(),
+    'NaiveBayes': nb_df.loc[nb_df['selection_score'].idxmax()].to_dict(),
+    'SVM': svm_df.loc[svm_df['selection_score'].idxmax()].to_dict(),
+    'KNN': knn_df.loc[knn_df['selection_score'].idxmax()].to_dict()
+}
+
+# Dictionary of model training functions
+model_functions = {
+    'LogisticRegression': lambda X_train, X_test, y_train, y_test: 
+        logistic_regression(X_train, X_test, y_train, y_test, best_configs['LogisticRegression']['C']),
+    
+    'SVD': lambda X_train, X_test, y_train, y_test:
+        SVD_residual(X_train, X_test, y_train, y_test, best_configs['SVD']['n_components']) 
+        if best_configs['SVD']['classifier'] == 'residual' else 
+        SVD_SVC(X_train, X_test, y_train, y_test, best_configs['SVD']['n_components']),
+    
+    'HOSVD': lambda X_train, X_test, y_train, y_test:
+        HOSVD_residual(X_train, X_test, y_train, y_test, 
+                      (best_configs['HOSVD']['n_components_mode1'], best_configs['HOSVD']['n_components_mode2'])) 
+        if best_configs['HOSVD']['classifier'] == 'residual' else 
+        HOSVD_SVC(X_train, X_test, y_train, y_test, 
+                 (best_configs['HOSVD']['n_components_mode1'], best_configs['HOSVD']['n_components_mode2'])),
+    
+    'LDA': lambda X_train, X_test, y_train, y_test:
+        lda_classifier(X_train, X_test, y_train, y_test, 
+                     best_configs['LDA']['solver'], best_configs['LDA']['shrinkage']),
+    
+    'RandomForest': lambda X_train, X_test, y_train, y_test:
+        random_forest(X_train, X_test, y_train, y_test, 
+                    best_configs['RandomForest']['n_estimators'], 
+                    best_configs['RandomForest']['max_depth'], 
+                    best_configs['RandomForest']['min_samples_split']),
+    
+    # 'GradientBoosting': lambda X_train, X_test, y_train, y_test:
+    #     gradient_boosting(X_train, X_test, y_train, y_test, 
+    #                     best_configs['GradientBoosting']['n_estimators'], 
+    #                     best_configs['GradientBoosting']['learning_rate'], 
+    #                     int(best_configs['GradientBoosting']['max_depth'])),
+    
+    'NaiveBayes': lambda X_train, X_test, y_train, y_test:
+        naive_bayes(X_train, X_test, y_train, y_test, best_configs['NaiveBayes']['var_smoothing']),
+    
+    'SVM': lambda X_train, X_test, y_train, y_test:
+        svm_classifier(X_train, X_test, y_train, y_test, 
+                     best_configs['SVM']['C'], best_configs['SVM']['kernel'], best_configs['SVM']['gamma']),
+    
+    'KNN': lambda X_train, X_test, y_train, y_test:
+        knn_classifier(X_train, X_test, y_train, y_test, 
+                     best_configs['KNN']['n_neighbors'], best_configs['KNN']['weights'], best_configs['KNN']['p'])
+}
+
+# Create a common train/test split for all evaluations
+np.random.seed(48)
+g_indices = np.random.permutation(len(X))
+split_point = int(len(X) * 0.8)
+gtrain_indices = g_indices[:split_point]
+gtest_indices = g_indices[split_point:]
+
+X_gtrain, X_gtest = X[gtrain_indices], X[gtest_indices]
+y_gtrain, y_gtest = y[gtrain_indices], y[gtest_indices]
+
+# Perform greedy cross-validation
+greedy_results = []
+remaining_models = list(model_functions.keys())
+iteration = 1
+
+while remaining_models:
+    print(f"\nIteration {iteration} - Evaluating {len(remaining_models)} models")
+    iteration_results = []
+    
+    for model_name in remaining_models:
+        model_func = model_functions[model_name]
+        
+        start_time = time.time()
+        y_pred = model_func(X_gtrain, X_gtest, y_gtrain, y_gtest)
+        elapsed_time = time.time() - start_time
+        
+        accuracy = accuracy_score(y_gtest, y_pred)
+        report = classification_report(y_gtest, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        f1 = 2 * (precision * recall) / (precision + recall) if precision + recall > 0 else 0
+        
+        # Calculate selection score
+        t_m = 60 * 30  # 30 minutes in seconds
+        selection_score = (1 / (1 + np.exp(27 - 30 * f1))) - (np.exp(27) / (1 + np.exp(27))) + np.exp(-elapsed_time / t_m)
+        
+        # Store results for this model
+        result = {
+            'iteration': iteration,
+            'model': model_name,
+            'mean_accuracy': accuracy,
+            'mean_precision': precision,
+            'mean_recall': recall,
+            'f1_score': f1,
+            'total_time': elapsed_time,
+            'selection_score': selection_score
+        }
+        
+        # Add the best hyperparameters to the result
+        best_config = best_configs[model_name]
+        for param, value in best_config.items():
+            if param not in ['mean_accuracy', 'mean_precision', 'mean_recall', 'f1_score', 'total_time', 'selection_score']:
+                result[param] = value
+        
+        iteration_results.append(result)
+        print(f"  {model_name}: Accuracy={accuracy:.4f}, F1={f1:.4f}, Time={elapsed_time:.2f}s, Score={selection_score:.4f}")
+    
+    # Find the best model in this iteration
+    iteration_df = pd.DataFrame(iteration_results)
+    best_idx = iteration_df['selection_score'].idxmax()
+    best_model = iteration_df.loc[best_idx, 'model']
+    
+    # Add all results from this iteration to the overall results
+    greedy_results.extend(iteration_results)
+    
+    # Keep only the best model for the next iteration
+    remaining_models.remove(best_model)
+    print(f"  Best model in iteration {iteration}: {best_model} (Score: {iteration_df.loc[best_idx, 'selection_score']:.4f})")
+    
+    # Stop after one iteration for greedy approach
+    break
+
+greedy_df = pd.DataFrame(greedy_results)
+greedy_df = greedy_df.sort_values('selection_score', ascending=False).reset_index(drop=True)
+
+def format_model_name(model_data, prefix):
+    if prefix == 'LogisticRegression':
+        return f"Logistic Regression (C={model_data['C']})"
+    elif prefix == 'SVD':
+        return f"SVD-{model_data['classifier']} (k={model_data['n_components']})"
+    elif prefix == 'HOSVD':
+        return f"HOSVD-{model_data['classifier']} (r1={model_data['n_components_mode1']}, r2={model_data['n_components_mode2']})"
+    elif prefix == 'RandomForest':
+        return f"Random Forest (t={model_data['n_estimators']}, d={model_data['max_depth'] or 'None'})"
+    elif prefix == 'GradientBoosting':
+        return f"Gradient Boosting (t={model_data['n_estimators']}, lr={model_data['learning_rate']}, d={model_data['max_depth']})"
+    elif prefix == 'NaiveBayes':
+        return f"Naive Bayes (s={model_data['var_smoothing']})"
+    elif prefix == 'SVM':
+        return f"SVM (C={model_data['C']}, k={model_data['kernel']}, g={model_data['gamma']})"
+    elif prefix == 'KNN':
+        return f"KNN (k={model_data['n_neighbors']}, w={model_data['weights']}, d={model_data['p']})"
+    elif prefix == 'LDA':
+        return f"LDA (solver={model_data['solver']}, shrink={model_data['shrinkage'] or 'None'})"
+    else:
+        return prefix
+
+# Format model names in the greedy results dataframe
+for i, row in greedy_df.iterrows():
+    greedy_df.at[i, 'model'] = format_model_name(row, row['model'])
+
+greedy_df = greedy_df[['model', 'mean_accuracy', 'mean_precision', 'mean_recall', 'f1_score', 'total_time', 'selection_score']].copy()
+greedy_df = greedy_df.sort_values('selection_score', ascending=False).reset_index(drop=True)
+```
+
+```{r greedy_results}
+#| warning: false
+#| output: true
+#| echo: false
+
+greedy_results <- py$greedy_df
+
+results_table(
+  greedy_results,
+  prefix_cols=list(
+    model = colDef(name = "Model", minWidth = 140)
+  )
+)
+```
+```{python final_analysis}
+#| echo: false
+#| warning: false
+
+top_models = greedy_df.head(3)['model'].tolist()
+base_model_names = [name.split('(')[0].strip() for name in top_models]
+confusion_matrices = generate_confusion_matrices(
+    base_model_names,
+    model_functions,
+    X_gtrain, X_gtest, y_gtrain, y_gtest
+)
+
+# Visualize model performance
+visualize_model_performance(
+    greedy_df,
+    save_path="model_performance_visualization.png",  # Optional: save the plot
+    confusion_matrices=confusion_matrices
+)
+
+```

@@ -1,0 +1,161 @@
+{
+    "sources": [
+        {
+            "author": [
+                {
+                    "family": "Mosteller",
+                    "given": "F."
+                },
+                {
+                    "family": "Tukey",
+                    "given": "J. W."
+                }
+            ],
+            "container-title": "Handbook of Social Psychology",
+            "editor": [
+                {
+                    "family": "Lindzey",
+                    "given": "G."
+                },
+                {
+                    "family": "Aronson",
+                    "given": "E."
+                }
+            ],
+            "id": "mosteller:1968",
+            "issued": {
+                "date-parts": [
+                    [
+                        1968
+                    ]
+                ]
+            },
+            "publisher": "Addison-Wesley",
+            "title": "Data analysis, including statistics",
+            "type": "article-journal",
+            "volume": "2"
+        },
+        {
+            "DOI": "10.1023/A:1010933404324",
+            "author": [
+                {
+                    "family": "Breiman",
+                    "given": "L."
+                }
+            ],
+            "container-title": "Machine Learning",
+            "id": "breiman:2001",
+            "issued": {
+                "date-parts": [
+                    [
+                        2001
+                    ]
+                ]
+            },
+            "page": "5-32",
+            "title": "Random forests",
+            "type": "article-journal",
+            "volume": "45"
+        },
+        {
+            "DOI": "10.1162/15324430152748236",
+            "author": [
+                {
+                    "family": "Tipping",
+                    "given": "M. E."
+                }
+            ],
+            "container-title": "Journal of Machine Learning Research",
+            "id": "tipping:2001",
+            "issued": {
+                "date-parts": [
+                    [
+                        2001
+                    ]
+                ]
+            },
+            "page": "211-244",
+            "title": "Sparse bayesian learning and the relevance vector machine",
+            "type": "article-journal",
+            "volume": "1"
+        },
+        {
+            "DOI": "10.1.1.41.1639",
+            "author": [
+                {
+                    "family": "Platt",
+                    "given": "J. C."
+                }
+            ],
+            "container-title": "Advances in Large Margin Classifiers",
+            "id": "platt:1999",
+            "issued": {
+                "date-parts": [
+                    [
+                        1999
+                    ]
+                ]
+            },
+            "page": "61-74",
+            "title": "Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods",
+            "type": "article-journal",
+            "volume": "10"
+        },
+        {
+            "DOI": "10.3390/electronics10161973",
+            "ISSN": "2079-9292",
+            "URL": "https://www.mdpi.com/2079-9292/10/16/1973",
+            "abstract": "Selecting a final machine learning (ML) model typically occurs after a process of hyperparameter optimization in which many candidate models with varying structural properties and algorithmic settings are evaluated and compared. Evaluating each candidate model commonly relies on k-fold cross validation, wherein the data are randomly subdivided into k folds, with each fold being iteratively used as a validation set for a model that has been trained using the remaining folds. While many research studies have sought to accelerate ML model selection by applying metaheuristic and other search methods to the hyperparameter space, no consideration has been given to the k-fold cross validation process itself as a means of rapidly identifying the best-performing model. The current study rectifies this oversight by introducing a greedy k-fold cross validation method and demonstrating that greedy k-fold cross validation can vastly reduce the average time required to identify the best-performing model when given a fixed computational budget and a set of candidate models. This improved search time is shown to hold across a variety of ML algorithms and real-world datasets. For scenarios without a computational budget, this paper also introduces an early stopping algorithm based on the greedy cross validation method. The greedy early stopping method is shown to outperform a competing, state-of-the-art early stopping method both in terms of search time and the quality of the ML models selected by the algorithm. Since hyperparameter optimization is among the most time-consuming, computationally intensive, and monetarily expensive tasks in the broader process of developing ML-based solutions, the ability to rapidly identify optimal machine learning models using greedy cross validation has obvious and substantial benefits to organizations and researchers alike.",
+            "author": [
+                {
+                    "family": "Soper",
+                    "given": "D. S."
+                }
+            ],
+            "container-title": "Electronics",
+            "id": "soper:2021",
+            "issue": "16",
+            "issued": {
+                "date-parts": [
+                    [
+                        2021
+                    ]
+                ]
+            },
+            "title": "Greed is good: Rapid hyperparameter optimization and model selection using greedy k-fold cross validation",
+            "title-short": "Greed is good",
+            "type": "article-journal",
+            "volume": "10"
+        },
+        {
+            "DOI": "10.1137/07070111X",
+            "URL": "https://doi.org/10.1137/07070111X",
+            "abstract": "Abstract. This survey provides an overview of higher-order tensor decompositions, their applications, and available software. A tensor is a multidimensional or N-way array. Decompositions of higher-order tensors (i.e., N-way arrays with N \\ge 3) have applications in psychometrics, chemometrics, signal processing, numerical linear algebra, computer vision, numerical analysis, data mining, neuroscience, graph analysis, and elsewhere. Two particular tensor decompositions can be considered to be higher-order extensions of the matrix singular value decomposition: CANDECOMP/PARAFAC (CP) decomposes a tensor as a sum of rank-one tensors, and the Tucker decomposition is a higher-order form of principal component analysis. There are many other tensor decompositions, including INDSCAL, PARAFAC2, CANDELINC, DEDICOM, and PARATUCK2 as well as nonnegative variants of all of the above. The N-way Toolbox, Tensor Toolbox, and Multilinear Engine are examples of software packages for working with tensors.",
+            "author": [
+                {
+                    "family": "Kolda",
+                    "given": "Tamara G."
+                },
+                {
+                    "family": "Bader",
+                    "given": "Brett W."
+                }
+            ],
+            "container-title": "SIAM Review",
+            "id": "kolda:2009",
+            "issue": "3",
+            "issued": {
+                "date-parts": [
+                    [
+                        2009
+                    ]
+                ]
+            },
+            "page": "455-500",
+            "title": "Tensor decompositions and applications",
+            "type": "article-journal",
+            "volume": "51"
+        }
+    ],
+    "project_biblios": []
+}

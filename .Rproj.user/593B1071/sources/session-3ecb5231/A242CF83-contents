@@ -1,0 +1,1153 @@
+---
+title: "Untitled"
+format: html
+---
+
+```{python set}
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import KFold, ParameterGrid, StratifiedKFold
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.decomposition import TruncatedSVD
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.linear_model import LogisticRegression
+import tensorly as tl
+from tensorly.decomposition import tucker
+from tensorly.base import partial_unfold, fold
+import time
+from datetime import datetime
+import pandas as pd
+import seaborn as sns
+
+X = r.usps['data']
+y = np.array(r.usps['label']).astype(int)
+
+# Define methods and parameter grids for hyperparameter optimization
+methods = ['LinearRegression', 'SVD', 'HOSVD', 'RandomForest', 'GBM', 'NaiveBayes', 'SVM', 'KNN', 'LDA']
+
+param_grids = {
+    'LinearRegression': {
+        'C': [0.01, 0.1, 1.0, 10.0, 100.0]
+    },
+    'SVD': {
+        'n_components': [1, 16, 32, 64, 128, 192, 256],
+        'classifier': ["SVC", "residual"]
+    },
+    'HOSVD': {
+        'n_components_mode1': [4, 8, 12, 16],
+        'n_components_mode2': [4, 8, 12, 16],
+        'classifier': ["SVC", "residual"]
+    },
+    'RandomForest': {
+        'n_estimators': [50, 100, 200],
+        'max_depth': [None, 10, 20, 30],
+        'min_samples_split': [2, 5, 10]
+    },
+    'GBM': {
+        'n_estimators': [50, 100, 200],
+        'learning_rate': [0.01, 0.1, 0.2],
+        'max_depth': [3, 5, 7]
+    },
+    'NaiveBayes': {
+        'var_smoothing': [1e-9, 1e-8, 1e-7, 1e-6]
+    },
+    'SVM': {
+        'C': [0.1, 1, 10, 100],
+        'kernel': ['linear', 'rbf', 'poly'],
+        'gamma': ['scale', 'auto', 0.1, 0.01]
+    },
+    'KNN': {
+        'n_neighbors': [3, 5, 7, 9, 11],
+        'weights': ['uniform', 'distance'],
+        'p': [1, 2]  # p=1 for manhattan, p=2 for euclidean
+    },
+    'LDA': {
+        'solver': ['svd', 'lsqr', 'eigen'],
+        'shrinkage': [None, 'auto', 0.1, 0.5, 0.9]
+    }
+}
+
+# Initialize results list
+results_list = []
+```
+
+# Cross-Validation to Optimize Models
+
+## What is cross-validation?
+
+Cross-validation is a resampling procedure used to evaluate machine learning models on a limited data sample. The procedure has a single parameter called $k$ that refers to the number of groups that a given data sample is to be split into. As such, the procedure is often called $k$-fold cross-validation.
+
+Cross-validation is primarily used in applied machine learning to:
+1. Estimate the skill of a machine learning model on unseen data
+2. Compare the performance of different machine learning models
+3. Detect overfitting (i.e., models that are too complex)
+4. Select optimal hyperparameters for a model
+
+The general procedure for $k$-fold cross-validation is as follows:
+1. Shuffle the dataset randomly
+2. Split the dataset into $k$ equal-sized folds
+3. For each unique fold:
+   a. Take the fold as a test set
+   b. Take the remaining folds as a training set
+   c. Fit a model on the training set
+   d. Evaluate it on the test set
+4. Summarize the skill of the model using the sample of model evaluation scores
+
+## What is "stratified" $k$-fold cross-validation?
+
+Stratified $k$-fold cross-validation is a variation of $k$-fold cross-validation that ensures each fold maintains the same class distribution as the original dataset. This is particularly important for imbalanced datasets or when working with multi-class classification problems where certain classes might be rare.
+
+For example, if our original dataset contains 10% of class A and 90% of class B, each fold in stratified $k$-fold cross-validation will maintain approximately the same 10:90 ratio. This helps ensure that our model evaluation is more reliable and less affected by sampling variability.
+
+In this study, we use stratified 5-fold cross-validation to evaluate different models for digit classification on the USPS dataset.
+
+```{python skf}
+skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=48)
+```
+
+# Model Building
+
+## 0. Linear Regression (Baseline)
+
+### Theory
+
+While Linear Regression is typically used for regression tasks, we can adapt it for classification using Logistic Regression with a one-vs-rest strategy for multi-class classification. This serves as our baseline model because:
+
+1. It's computationally efficient and fast to train
+2. It provides interpretable coefficients
+3. It serves as a good reference point for more complex models
+
+Logistic Regression uses the logistic function to model the probability of a sample belonging to a particular class. The model uses a linear combination of features and weights, passed through the logistic function to produce class probabilities:
+
+$$P(y=1|x) = \frac{1}{1 + e^{-(w^T x + b)}}$$
+
+### Implementation
+
+```{python linear_regression}
+# Function to perform Logistic Regression classification
+def logistic_regression(X_train, X_test, y_train, y_test, C):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Train classifier
+    clf = LogisticRegression(C=C, multi_class='ovr', max_iter=1000, random_state=48)
+    clf.fit(X_train_scaled, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_scaled)
+    
+    return y_pred
+
+lr_results = []
+
+for params in ParameterGrid(param_grids["LinearRegression"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing Logistic Regression model with C = {params['C']}")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        y_pred = logistic_regression(X_train, X_test, y_train, y_test, params['C'])
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    mean_time = np.mean(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'method': 'LinearRegression',
+        'C': params['C'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'mean_time': mean_time
+    }
+    results_list.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={mean_time:.2f}s")
+
+lr_df = pd.DataFrame(lr_results)
+```
+
+### Analysis
+
+The Logistic Regression model serves as our baseline. It's important to analyze:
+1. How regularization strength (C parameter) affects performance
+2. How well it performs compared to more complex models
+3. Its computational efficiency
+
+## 1. Singular Value Decomposition (SVD)
+
+### Theory
+
+Singular Value Decomposition (SVD) is a matrix factorization technique that decomposes a matrix into three matrices:
+
+$$X = U \Sigma V^T$$
+
+where:
+- $U$ is an orthogonal matrix containing the left singular vectors
+- $\Sigma$ is a diagonal matrix of singular values
+- $V^T$ is the transpose of an orthogonal matrix containing the right singular vectors
+
+SVD can be used for dimensionality reduction by keeping only the top $k$ singular values and vectors. This creates a low-rank approximation of the original data. In the context of image recognition, SVD can capture the most important patterns in the image data while reducing noise.
+
+### Implementation
+
+```{python svd}
+def SVD_residual(X_train, X_test, y_train, y_test, n_components):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Group training data by digit class
+    digit_classes = np.unique(y_train)
+    class_indices = {digit: np.where(y_train == digit)[0] for digit in digit_classes}
+    
+    # Compute SVD for each digit class separately
+    class_subspaces = {}
+    for digit in digit_classes:
+        # Get data for this digit class
+        X_digit = X_train_scaled[class_indices[digit]]
+        
+        # Compute SVD for this class
+        svd_digit = TruncatedSVD(n_components=n_components)
+        svd_digit.fit(X_digit)
+        
+        # Store the SVD components and mean for this digit class
+        class_subspaces[digit] = {
+            'components': svd_digit.components_,
+            'mean': np.mean(X_digit, axis=0)
+        }
+    
+    # Function to compute Frobenius norm of residual
+    def compute_residual(x, subspace):
+        # Project the sample onto the subspace
+        components = subspace['components']
+        mean_centered_x = x - subspace['mean']
+        projection = mean_centered_x @ components.T @ components
+        
+        # Compute the residual
+        residual = mean_centered_x - projection
+        
+        # Return the Frobenius norm of the residual
+        return np.linalg.norm(residual)
+    
+    # Predict test samples using minimum residual
+    y_pred = []
+    residuals = np.zeros((X_test_scaled.shape[0], len(digit_classes)))
+    
+    for i, x in enumerate(X_test_scaled):
+        # Compute residual for each digit class
+        for j, digit in enumerate(digit_classes):
+            residuals[i, j] = compute_residual(x, class_subspaces[digit])
+        
+        # Predict the digit with minimum residual
+        y_pred.append(digit_classes[np.argmin(residuals[i])])
+    
+    # Convert to numpy array
+    y_pred = np.array(y_pred)
+    
+    return y_pred
+
+def SVD_SVC(X_train, X_test, y_train, y_test, n_components):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Apply SVD
+    svd = TruncatedSVD(n_components=n_components)
+    X_train_svd = svd.fit_transform(X_train_scaled)
+    X_test_svd = svd.transform(X_test_scaled)
+    
+    # Train classifier
+    clf = SVC()
+    clf.fit(X_train_svd, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_svd)
+    
+    return y_pred
+
+svd_results = []
+
+for params in ParameterGrid(param_grids["SVD"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing SVD {params['classifier']} model with n_components = {params['n_components']}")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        
+        if params['classifier'] == "SVC":
+            y_pred = SVD_SVC(X_train, X_test, y_train, y_test, params['n_components'])
+        elif params['classifier'] == "residual":
+            y_pred = SVD_residual(X_train, X_test, y_train, y_test, params['n_components'])
+        else:
+            raise ValueError(f"Unknown method: {params['classifier']}")
+        
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    mean_time = np.mean(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'method': 'SVD',
+        'n_components': params['n_components'],
+        'classifier': params['classifier'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'mean_time': mean_time
+    }
+    results_list.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={mean_time:.2f}s")
+
+svd_df = pd.DataFrame(svd_results)
+```
+
+### Analysis
+
+The SVD approach can be evaluated based on:
+1. How the number of components affects model performance
+2. The trade-off between dimensionality reduction and information preservation
+3. Which classifier (SVC or residual) performs better with SVD features
+4. How SVD compares to other dimensionality reduction techniques
+
+## 2. Higher-Order SVD (HOSVD)
+
+### Theory
+
+Higher-Order SVD (HOSVD) extends the concept of SVD to tensors (multi-dimensional arrays) across modes. For a 3-D tensor $\mathcal{X} \in \mathbb{R}^{I_1 \times I_2 \times I_3}$, HOSVD decomposes it as:
+
+$$\mathcal{X} \approx \mathcal{G} \times_1 U^{(1)} \times_2 U^{(2)} \times_3 U^{(3)}$$
+
+where:
+- $\mathcal{G} \in \mathbb{R}^{R_1 \times R_2 \times R_3}$ is the core tensor
+- $U^{(i)} \in \mathbb{R}^{I_i \times R_i}$ are the factor matrices
+- $\times_n$ denotes the n-mode product
+
+In image recognition, HOSVD will capture spatial correlations in the data more effectively than standard SVD. I apply the same classifier logic from SVD to HOSVD where there
+
+### Implementation
+
+```{python hosvd}
+def reshape_for_hosvd(X, img_shape=(16, 16)):
+    """Reshape flattened image data to 3D tensor (samples, height, width)"""
+    n_samples = X.shape[0]
+    return X.reshape((n_samples, img_shape[0], img_shape[1]))
+
+def hosvd_transform(X_train, X_test, n_components_modes=(10, 10)):
+    """Apply HOSVD to train data and transform test data"""
+    
+    # Reshape data to 3D tensor
+    X_train_tensor = reshape_for_hosvd(X_train)
+    X_test_tensor = reshape_for_hosvd(X_test)
+    
+    # Get tensor dimensions
+    n_samples = X_train_tensor.shape[0]  # Mode 0 dimension (samples)
+    n_features_1 = X_train_tensor.shape[1]  # Mode 1 dimension
+    n_features_2 = X_train_tensor.shape[2]  # Mode 2 dimension
+    
+    # Set up consistent ranks for all modes
+    # (Modes are zero-indexed in the rank parameter)
+    rank = [n_samples,  # Mode 0 (samples) rank
+            min(n_features_1, n_components_modes[0]),  # Mode 1 feature rank
+            min(n_features_2, n_components_modes[1])]  # Mode 2 feature rank
+    
+    # Perform Tucker decomposition
+    core, factors = tucker(X_train_tensor, rank=rank)
+    
+    # Take appropriate subset of factors
+    factors_subset = factors.copy()
+    factors_subset[0] = factors_subset[0][:X_test_tensor.shape[0],:X_test_tensor.shape[0]]
+    X_train_hosvd = tl.tucker_to_tensor((core, factors))
+    spatial_modes = list(range(1, tl.ndim(X_test_tensor)))
+    X_test_projected = X_test_tensor.copy()
+    
+    # Project to factor space for spatial dimensions
+    for mode in spatial_modes:
+        X_test_projected = tl.tenalg.mode_dot(X_test_projected, factors[mode].T, mode)
+    
+    # Project back to original space for spatial dimensions
+    X_test_hosvd = X_test_projected.copy()
+    for mode in spatial_modes:
+        X_test_hosvd = tl.tenalg.mode_dot(X_test_hosvd, factors[mode], mode)
+        
+    return X_train_hosvd, X_test_hosvd, factors
+
+def HOSVD_residual(X_train, X_test, y_train, y_test, n_components_modes):
+    """
+    HOSVD-based classifier that uses minimum residual for prediction
+    """
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Reshape to tensor format
+    X_train_tensor = reshape_for_hosvd(X_train_scaled)
+    X_test_tensor = reshape_for_hosvd(X_test_scaled)
+    
+    # Group training data by digit class
+    digit_classes = np.unique(y_train)
+    class_indices = {digit: np.where(y_train == digit)[0] for digit in digit_classes}
+    
+    # Compute HOSVD for each digit class separately
+    class_subspaces = {}
+    for digit in digit_classes:
+        # Get data for this digit class
+        X_digit = X_train_scaled[class_indices[digit]]
+        X_digit_tensor = reshape_for_hosvd(X_digit)
+        
+        # Compute mean for this class
+        digit_mean = np.mean(X_digit_tensor, axis=0)
+        
+        # Center the data
+        X_digit_centered = X_digit_tensor - digit_mean
+        
+        # Get tensor dimensions for this class
+        n_samples_digit = X_digit_centered.shape[0]
+        n_features_1 = X_digit_centered.shape[1]
+        n_features_2 = X_digit_centered.shape[2]
+        
+        # Set up ranks for modes
+        rank = [
+            n_samples_digit,  # Mode 0 (samples) rank
+            min(n_features_1, n_components_modes[0]),  # Mode 1 feature rank
+            min(n_features_2, n_components_modes[1])   # Mode 2 feature rank
+        ]
+        
+        # Perform Tucker decomposition for this class
+        core, factors = tucker(X_digit_centered, rank=rank)
+        
+        # Store the HOSVD components and mean for this digit class
+        class_subspaces[digit] = {
+            'core': core,
+            'factors': factors,
+            'mean': digit_mean
+        }
+    
+    # Function to compute Frobenius norm of residual for HOSVD
+    def compute_hosvd_residual(x_tensor, subspace):
+        # Center the test sample
+        mean_centered_x = x_tensor - subspace['mean']
+        
+        # Project to factor space for spatial dimensions
+        spatial_modes = [1, 2]
+        projected = mean_centered_x.copy()
+        
+        # Project to factor space
+        for mode in spatial_modes:
+            projected = tl.tenalg.mode_dot(projected, subspace['factors'][mode].T, mode)
+        
+        # Project back to original space
+        reconstruction = projected.copy()
+        for mode in spatial_modes:
+            reconstruction = tl.tenalg.mode_dot(reconstruction, subspace['factors'][mode], mode)
+        
+        # Compute the residual
+        residual = mean_centered_x - reconstruction
+        
+        # Return the Frobenius norm of the residual
+        return tl.norm(residual)
+    
+    # Predict test samples using minimum residual
+    y_pred = []
+    residuals = np.zeros((X_test_tensor.shape[0], len(digit_classes)))
+    
+    for i, x in enumerate(X_test_tensor):
+        # Compute residual for each digit class
+        for j, digit in enumerate(digit_classes):
+            residuals[i, j] = compute_hosvd_residual(x, class_subspaces[digit])
+        
+        # Predict the digit with minimum residual
+        y_pred.append(digit_classes[np.argmin(residuals[i])])
+    
+    # Convert to numpy array
+    y_pred = np.array(y_pred)
+    
+    return y_pred
+
+def HOSVD_SVC(X_train, X_test, y_train, y_test, n_components_modes):
+    """
+    HOSVD-based classifier that uses SVC on transformed features
+    """
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Reshape to tensor format
+    X_train_tensor = reshape_for_hosvd(X_train_scaled)
+    X_test_tensor = reshape_for_hosvd(X_test_scaled)
+    
+    # Apply HOSVD transformation
+    _, _, factors = hosvd_transform(X_train_scaled, X_test_scaled, n_components_modes)
+    
+    # Project training data to lower-dimensional space
+    X_train_projected = X_train_tensor.copy()
+    for mode in [1, 2]:  # Spatial modes
+        X_train_projected = tl.tenalg.mode_dot(X_train_projected, factors[mode].T, mode)
+    
+    # Project test data to lower-dimensional space
+    X_test_projected = X_test_tensor.copy()
+    for mode in [1, 2]:  # Spatial modes
+        X_test_projected = tl.tenalg.mode_dot(X_test_projected, factors[mode].T, mode)
+    
+    # Flatten the projected tensors for SVC
+    X_train_flat = X_train_projected.reshape(X_train_projected.shape[0], -1)
+    X_test_flat = X_test_projected.reshape(X_test_projected.shape[0], -1)
+    
+    # Train classifier
+    clf = SVC()
+    clf.fit(X_train_flat, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_flat)
+    
+    return y_pred
+
+hosvd_results = []
+
+for params in ParameterGrid(param_grids["HOSVD"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing HOSVD {params['classifier']} model with components ({params['n_components_mode1']}, {params['n_components_mode2']})")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        
+        if params['classifier'] == "SVC":
+            n_components_modes = (params['n_components_mode1'], params['n_components_mode2'])
+            y_pred = HOSVD_SVC(X_train, X_test, y_train, y_test, n_components_modes)
+        elif params['classifier'] == "residual":
+            n_components_modes = (params['n_components_mode1'], params['n_components_mode2'])
+            y_pred = HOSVD_residual(X_train, X_test, y_train, y_test, n_components_modes)
+        else:
+            raise ValueError(f"Unknown method: {params['classifier']}")
+        
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    mean_time = np.mean(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'method': 'HOSVD',
+        'n_components_mode1': params['n_components_mode1'],
+        'n_components_mode2': params['n_components_mode2'],
+        'classifier': params['classifier'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'mean_time': mean_time
+    }
+    results_list.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={mean_time:.2f}s")
+
+hosvd_df = pd.DataFrame(hosvd_results)
+```
+
+### Analysis
+
+HOSVD can be analyzed by examining:
+1. How different rank combinations affect performance
+2. Whether preserving the tensor structure improves recognition compared to flattened SVD
+3. The computational efficiency trade-off
+
+## 3. Random Forest
+
+### Theory
+
+Random Forest is an ensemble learning method that constructs multiple decision trees during training and outputs the class that is the mode of the classes of the individual trees. Random Forests address the overfitting problem common in decision trees by:
+
+1. Training each tree on a random subset of the data (bootstrap aggregating or "bagging")
+2. Using a random subset of features when splitting nodes
+
+Key advantages of Random Forest include:
+- High accuracy even without hyperparameter tuning
+- Robustness to outliers and noise
+- Ability to handle both continuous and categorical variables
+- Built-in feature importance ranking
+
+### Implementation
+
+```{python random_forest}
+def random_forest(X_train, X_test, y_train, y_test, n_estimators, max_depth, min_samples_split):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Train Random Forest classifier
+    clf = RandomForestClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        min_samples_split=min_samples_split,
+        random_state=48,
+        n_jobs=-1  # Use all available cores
+    )
+    clf.fit(X_train_scaled, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_scaled)
+    
+    return y_pred
+
+rf_results = []
+
+for params in ParameterGrid(param_grids["RandomForest"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing Random Forest model with n_estimators={params['n_estimators']}, max_depth={params['max_depth']}, min_samples_split={params['min_samples_split']}")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        y_pred = random_forest(
+            X_train, X_test, y_train, y_test, 
+            params['n_estimators'], params['max_depth'], params['min_samples_split']
+        )
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    mean_time = np.mean(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'method': 'RandomForest',
+        'n_estimators': params['n_estimators'],
+        'max_depth': params['max_depth'],
+        'min_samples_split': params['min_samples_split'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'mean_time': mean_time
+    }
+    results_list.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={mean_time:.2f}s")
+
+rf_df = pd.DataFrame(rf_results)
+```
+
+### Analysis
+
+Random Forest offers several advantages for digit classification:
+1. The ability to capture complex, non-linear relationships in the data
+2. Feature importance ranking to understand which aspects of the digit images are most discriminative
+3. Resistance to overfitting through ensemble learning
+
+Key points to analyze include:
+- How the number of trees affects both accuracy and computational efficiency
+- The impact of tree depth on model complexity and generalization
+- How Random Forest compares to other ensemble methods
+
+## 5. Naive Bayes
+
+### Theory
+
+Naive Bayes classifiers are a family of simple probabilistic classifiers based on applying Bayes' theorem with strong (naive) independence assumptions between the features. Despite their simplicity, they often perform surprisingly well in many real-world situations, especially in text classification and other high-dimensional problems.
+
+The key idea behind Naive Bayes is to use the joint probabilities of features and labels to estimate the probability of a label given the features:
+
+$P(y|x_1, x_2, ..., x_n) \propto P(y) \prod_{i=1}^{n} P(x_i|y)$
+
+Where:
+- $P(y|x_1, x_2, ..., x_n)$ is the posterior probability of class $y$ given features $(x_1, x_2, ..., x_n)$
+- $P(y)$ is the prior probability of class $y$
+- $P(x_i|y)$ is the likelihood of feature $x_i$ given class $y$
+
+For digit classification, we'll use Gaussian Naive Bayes, which assumes that features follow a normal distribution within each class.
+
+### Implementation
+
+```{python naive_bayes}
+def naive_bayes(X_train, X_test, y_train, y_test, var_smoothing):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Train Gaussian Naive Bayes classifier
+    clf = GaussianNB(var_smoothing=var_smoothing)
+    clf.fit(X_train_scaled, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_scaled)
+    
+    return y_pred
+
+nb_results = []
+
+for params in ParameterGrid(param_grids["NaiveBayes"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing Naive Bayes model with var_smoothing={params['var_smoothing']}")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        y_pred = naive_bayes(X_train, X_test, y_train, y_test, params['var_smoothing'])
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    mean_time = np.mean(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'method': 'NaiveBayes',
+        'var_smoothing': params['var_smoothing'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'mean_time': mean_time
+    }
+    results_list.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={mean_time:.2f}s")
+
+nb_df = pd.DataFrame(nb_results)
+```
+
+### Analysis
+
+Naive Bayes offers several advantages:
+1. Extremely fast training and prediction compared to more complex models
+2. Works well with high-dimensional data, which makes it suitable for pixel-based image classification
+3. Requires less training data to achieve reasonable performance
+
+Key points to analyze include:
+- How the independence assumption affects model performance on highly correlated pixel data
+- The effect of variance smoothing on model robustness
+- The trade-off between speed and accuracy compared to other methods
+
+## 6. Support Vector Machine (SVM)
+
+### Theory
+
+Support Vector Machine (SVM) is a powerful supervised learning algorithm used for classification and regression tasks. In the context of classification, SVM tries to find the optimal hyperplane that maximizes the margin between different classes. The margin is defined as the distance between the hyperplane and the nearest data points from each class, which are called support vectors.
+
+The key advantages of SVM include:
+1. Effectiveness in high-dimensional spaces
+2. Memory efficiency as it uses only a subset of training points (support vectors)
+3. Versatility through different kernel functions that can handle various data distributions
+
+For non-linearly separable data, SVM uses kernel functions to implicitly map the input features to higher-dimensional spaces. Common kernel functions include:
+- Linear: $K(x, y) = x^T y$
+- Polynomial: $K(x, y) = (\gamma x^T y + r)^d$
+- Radial Basis Function (RBF): $K(x, y) = \exp(-\gamma ||x - y||^2)$
+
+### Implementation
+
+```{python svm}
+def svm_classifier(X_train, X_test, y_train, y_test, C, kernel, gamma):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Train SVM classifier
+    clf = SVC(C=C, kernel=kernel, gamma=gamma, random_state=48)
+    clf.fit(X_train_scaled, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_scaled)
+    
+    return y_pred
+
+svm_results = []
+
+for params in ParameterGrid(param_grids["SVM"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing SVM model with C={params['C']}, kernel={params['kernel']}, gamma={params['gamma']}")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        y_pred = svm_classifier(X_train, X_test, y_train, y_test, params['C'], params['kernel'], params['gamma'])
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    mean_time = np.mean(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'method': 'SVM',
+        'C': params['C'],
+        'kernel': params['kernel'],
+        'gamma': params['gamma'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'mean_time': mean_time
+    }
+    results_list.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={mean_time:.2f}s")
+
+svm_df = pd.DataFrame(svm_results)
+```
+
+### Analysis
+
+SVM performance can be analyzed by examining:
+1. The impact of kernel choice on model performance for digit classification
+2. How the regularization parameter C affects the trade-off between margin maximization and misclassification
+3. The effect of gamma on the flexibility of the decision boundary for RBF and polynomial kernels
+4. The computational efficiency compared to other methods, especially with large datasets
+
+## 8. Linear Discriminant Analysis (LDA)
+
+### Theory
+
+Linear Discriminant Analysis (LDA) is a dimensionality reduction technique that also serves as a classifier. Unlike PCA, which maximizes variance without considering class labels, LDA is a supervised method that finds a linear combination of features that characterizes or separates two or more classes.
+
+The key objectives of LDA are:
+1. Maximize the distance between means of different classes
+2. Minimize the variation within each class
+
+Mathematically, LDA seeks to find a projection that maximizes the ratio of between-class scatter to within-class scatter:
+
+$J(w) = \frac{w^T S_B w}{w^T S_W w}$
+
+Where:
+- $S_B$ is the between-class scatter matrix
+- $S_W$ is the within-class scatter matrix
+- $w$ is the projection vector
+
+### Implementation
+
+```{python lda}
+def lda_classifier(X_train, X_test, y_train, y_test, solver, shrinkage):
+    # Scale data
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Train LDA classifier
+    clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage)
+    clf.fit(X_train_scaled, y_train)
+    
+    # Predict
+    y_pred = clf.predict(X_test_scaled)
+    
+    return y_pred
+
+lda_results = []
+
+for params in ParameterGrid(param_grids["LDA"]):
+    # Track metrics across folds
+    fold_accuracies = []
+    fold_precisions = []
+    fold_recalls = []
+    fold_times = []
+    
+    print(f"Testing LDA model with solver={params['solver']}, shrinkage={params['shrinkage']}")
+    
+    # Perform k-fold cross-validation
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+        
+        start_time = time.time()
+        y_pred = lda_classifier(X_train, X_test, y_train, y_test, params['solver'], params['shrinkage'])
+        elapsed_time = time.time() - start_time
+        fold_times.append(elapsed_time)
+        
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
+        precision = report['weighted avg']['precision']
+        recall = report['weighted avg']['recall']
+        
+        # Store results for this fold
+        fold_accuracies.append(accuracy)
+        fold_precisions.append(precision)
+        fold_recalls.append(recall)
+        
+        print(f"  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s")
+    
+    # Compute average metrics across all folds
+    mean_accuracy = np.mean(fold_accuracies)
+    mean_precision = np.mean(fold_precisions)
+    mean_recall = np.mean(fold_recalls)
+    mean_time = np.mean(fold_times)
+    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)
+    
+    # Store results for this parameter combination
+    result = {
+        'method': 'LDA',
+        'solver': params['solver'],
+        'shrinkage': params['shrinkage'],
+        'mean_accuracy': mean_accuracy,
+        'mean_precision': mean_precision,
+        'mean_recall': mean_recall,
+        'f1_score': f1_score,
+        'mean_time': mean_time
+    }
+    results_list.append(result)
+    
+    print(f"  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={mean_time:.2f}s")
+
+lda_df = pd.DataFrame(lda_results)
+```
+
+### Analysis
+
+LDA can be analyzed by examining:
+1. How it performs as both a dimensionality reduction technique and a classifier
+2. The impact of different solvers on performance and computational efficiency
+3. The effect of shrinkage on model robustness and generalization capability
+4. How LDA compares to other linear methods like Logistic Regression
+
+# Model Comparison and Evaluation
+
+After training and evaluating all models using cross-validation, we can compare their performance based on various metrics.
+
+```{python model_comparison}
+# Create a consolidated DataFrame with all results
+all_results_df = pd.DataFrame(results_list)
+
+# Function to find the best model for each method
+def get_best_models():
+    best_models = {}
+    for method in methods:
+        method_df = all_results_df[all_results_df['method'] == method]
+        if not method_df.empty:
+            best_idx = method_df['mean_accuracy'].idxmax()
+            best_models[method] = method_df.loc[best_idx]
+    return pd.DataFrame(best_models).T
+
+# Get best models for each method
+best_models_df = get_best_models()
+
+# Create performance comparison plot
+plt.figure(figsize=(14, 8))
+sns.barplot(x='method', y='mean_accuracy', data=best_models_df)
+plt.title('Best Model Accuracy by Method')
+plt.xlabel('Method')
+plt.ylabel('Accuracy')
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.savefig('model_comparison_accuracy.png')
+
+# Create runtime comparison plot
+plt.figure(figsize=(14, 8))
+sns.barplot(x='method', y='mean_time', data=best_models_df)
+plt.title('Runtime Comparison for Best Models')
+plt.xlabel('Method')
+plt.ylabel('Average Runtime (seconds)')
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.savefig('model_comparison_runtime.png')
+
+# Print best model details
+print("Best Models by Method:")
+print(best_models_df[['mean_accuracy', 'mean_precision', 'mean_recall', 'f1_score', 'mean_time']])
+```
+
+## What is "greedy" $k$-fold cross-validation?
+
+"Greedy" $k$-fold cross-validation is a strategy for model selection that incrementally builds a model pipeline by selecting components that maximize performance at each step. The process typically follows these steps:
+
+1. Start with a set of candidate models or components
+2. Evaluate each candidate using $k$-fold cross-validation
+3. Select the best-performing candidate based on a chosen metric
+4. Fix this component and evaluate the next set of components
+5. Continue until all components are selected
+
+This approach is "greedy" because it makes locally optimal choices at each step without reconsidering previous decisions. While this may not always lead to the globally optimal solution, it can significantly reduce the computational cost compared to an exhaustive search over all possible combinations of components.
+
+In our context, we might use greedy $k$-fold cross-validation to:
+1. First select the best dimensionality reduction technique (SVD, HOSVD, LDA)
+2. Then fix that and select the best classifier to use with the reduced features
+3. Finally, optimize the hyperparameters of the selected classifier
+
+# Conclusion
+
+In this study, we have explored and compared multiple machine learning approaches for digit classification using the USPS dataset. Starting with a simple baseline (Logistic Regression), we progressively implemented more complex methods including SVD, HOSVD, Random Forest, Gradient Boosting, Naive Bayes, SVM, k-NN, and LDA.
+
+The key findings include:
+1. [Insert findings about which methods performed best]
+2. [Insert findings about dimensionality reduction effectiveness]
+3. [Insert findings about computational efficiency trade-offs]
+4. [Insert findings about hyperparameter sensitivity]
+
+The analysis demonstrates that [insert conclusion about best approach for this dataset].
+
+Future work could explore:
+1. Ensemble methods that combine multiple models for improved performance
+2. Deep learning approaches such as Convolutional Neural Networks
+3. More advanced dimensionality reduction techniques
+4. Feature engineering to extract problem-specific features
+
+# References
+
+[List of relevant references about machine learning models and digit classification]

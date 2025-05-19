@@ -1,0 +1,110 @@
+"0","#| warning: false"
+"0","#| output: false"
+"0","#| echo: false"
+"0","#| eval: false"
+"0",""
+"0","def naive_bayes(X_train, X_test, y_train, y_test, var_smoothing):"
+"0","    # Scale data"
+"0","    scaler = StandardScaler()"
+"0","    X_train_scaled = scaler.fit_transform(X_train)"
+"0","    X_test_scaled = scaler.transform(X_test)"
+"0","    "
+"0","    # Train Gaussian Naive Bayes classifier"
+"0","    clf = GaussianNB(var_smoothing=var_smoothing)"
+"0","    clf.fit(X_train_scaled, y_train)"
+"0","    "
+"0","    # Predict"
+"0","    y_pred = clf.predict(X_test_scaled)"
+"0","    "
+"0","    return y_pred"
+"0","    "
+"0","nb_results = []"
+"0",""
+"0","for params in ParameterGrid(param_grids[""NaiveBayes""]):"
+"0","    # Track metrics across folds"
+"0","    fold_accuracies = []"
+"0","    fold_precisions = []"
+"0","    fold_recalls = []"
+"0","    fold_times = []"
+"0","    "
+"0","    print(f""Testing Naive Bayes model with var_smoothing={params['var_smoothing']}"")"
+"0","    "
+"0","    # Perform k-fold cross-validation"
+"0","    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):"
+"0","        X_train, X_test = X[train_idx], X[test_idx]"
+"0","        y_train, y_test = y[train_idx], y[test_idx]"
+"0","        "
+"0","        start_time = time.time()"
+"0","        y_pred = naive_bayes(X_train, X_test, y_train, y_test, params['var_smoothing'])"
+"0","        elapsed_time = time.time() - start_time"
+"0","        fold_times.append(elapsed_time)"
+"0","        "
+"0","        accuracy = accuracy_score(y_test, y_pred)"
+"0","        report = classification_report(y_test, y_pred, output_dict=True)"
+"0","        precision = report['weighted avg']['precision']"
+"0","        recall = report['weighted avg']['recall']"
+"0","        "
+"0","        # Store results for this fold"
+"0","        fold_accuracies.append(accuracy)"
+"0","        fold_precisions.append(precision)"
+"0","        fold_recalls.append(recall)"
+"0","        "
+"0","        print(f""  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s"")"
+"0","    "
+"0","    # Compute average metrics across all folds"
+"0","    mean_accuracy = np.mean(fold_accuracies)"
+"0","    mean_precision = np.mean(fold_precisions)"
+"0","    mean_recall = np.mean(fold_recalls)"
+"0","    total_time = sum(fold_times)"
+"0","    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)"
+"0","    "
+"0","    # Store results for this parameter combination"
+"0","    result = {"
+"0","        'var_smoothing': params['var_smoothing'],"
+"0","        'mean_accuracy': mean_accuracy,"
+"0","        'mean_precision': mean_precision,"
+"0","        'mean_recall': mean_recall,"
+"0","        'f1_score': f1_score,"
+"0","        'total_time': total_time"
+"0","    }"
+"0","    nb_results.append(result)"
+"0","    "
+"0","    print(f""  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s"")"
+"0","    "
+"0","nb_df = calculate_selection_score(pd.DataFrame(nb_results))"
+"1","Testing Naive Bayes model with var_smoothing=1e-09
+"
+"1","  Fold 1/5: Accuracy=0.7452, Precision=0.7796, Recall=0.7452, Time=0.07s
+  Fold 2/5: Accuracy=0.7070, Precision=0.7764, Recall=0.7070, Time=0.07s
+  Fold 3/5: Accuracy=0.7183, Precision=0.7665, Recall=0.7183, Time=0.06s
+  Fold 4/5: Accuracy=0.7219, Precision=0.7766, Recall=0.7219, Time=0.08s
+  Fold 5/5: Accuracy=0.7343, Precision=0.7840, Recall=0.7343, Time=0.07s
+  Average: Accuracy=0.7253, Precision=0.7766, Recall=0.7253, F1=0.7501, Time=0.35s
+Testing Naive Bayes model with var_smoothing=1e-08
+  Fold"
+"1"," 1/5: Accuracy=0.7532, Precision=0.7856, Recall=0.7532, Time=0.07s
+"
+"1","  Fold 2/5: Accuracy=0.7124, Precision=0.7769, Recall=0.7124, Time=0.10s
+  Fold 3/5: Accuracy=0.7231, Precision=0.7706, Recall=0.7231, Time=0.07s
+  Fold 4/5: Accuracy=0.7246, Precision=0.7794, Recall=0.7246, Time=0.07s
+  Fold 5/5: Accuracy=0.7380, Precision=0.7877, Recall=0.7380, Time=0.07s
+  Average: Accuracy=0.7303, Precision=0.7800, Recall=0.7303, F1=0.7543, Time=0.38s
+Testing Naive Bayes model with var_smoothing=1e-07
+  Fold 1/5: Accuracy=0.7565, Precision=0.7880, Recall=0.7565, Time=0.07s
+  Fold"
+"1"," 2/5: Accuracy=0.7237, Precision=0.7846, Recall=0.7237, Time=0.07s
+"
+"1","  Fold 3/5: Accuracy=0.7344, Precision=0.7835, Recall=0.7344, Time=0.07s
+  Fold 4/5: Accuracy=0.7273, Precision=0.7816, Recall=0.7273, Time=0.06s
+  Fold 5/5: Accuracy=0.7472, Precision=0.7971, Recall=0.7472, Time=0.06s
+  Average: Accuracy=0.7378, Precision=0.7870, Recall=0.7378, F1=0.7616, Time=0.33s
+Testing Naive Bayes model with var_smoothing=1e-06
+  Fold 1/5: Accuracy=0.7667, Precision=0.7975, Recall=0.7667, Time=0.08s
+  Fold 2/5: Accuracy=0.7333, Precision=0.7905, Recall=0.7333, Time=0.08s
+  Fold"
+"1"," 3/5: Accuracy=0.7392, Precision=0.7869, Recall=0.7392, Time=0.07s
+  Fold 4/5: Accuracy=0.7359, Precision=0.7881, Recall=0.7359, Time=0.06s
+"
+"1","  Fold 5/5: Accuracy=0.7542, Precision=0.8051, Recall=0.7542, Time=0.06s
+  Average: Accuracy=0.7459, Precision=0.7936, Recall=0.7459, F1=0.7690, Time=0.35s
+"

@@ -1,0 +1,23 @@
+"0","#| warning: false"
+"0","#| output: true"
+"0","#| echo: false"
+"0",""
+"0","# knn_results <- py$knn_df"
+"0","# write_csv(knn_results, ""data/knn_results.csv"")"
+"0","knn_results <- read_csv(""data/knn_results.csv"")"
+"2","[1mRows: [22m[34m20[39m [1mColumns: [22m[34m9[39m"
+"2","[36m──[39m [1mColumn specification[22m [36m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m
+[1mDelimiter:[22m "",""
+[31mchr[39m (1): weights
+[32mdbl[39m (8): n_neighbors, p, mean_accuracy, mean_precision, mean_recall, f1_score, total_time, selection_score"
+"2","
+[36mℹ[39m Use `spec()` to retrieve the full column specification for this data.
+[36mℹ[39m Specify the column types or set `show_col_types = FALSE` to quiet this message."
+"0","results_table("
+"0","  knn_results,"
+"0","  prefix_cols=list("
+"0","    n_neighbors = colDef(name = ""k"", minWidth = 50),"
+"0","    weights = colDef(name = ""Weights""),"
+"0","    p = colDef(name = ""Distance"")"
+"0","  )"
+"0",")"

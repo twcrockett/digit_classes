@@ -1,0 +1,184 @@
+"0","#| warning: false"
+"0","#| output: false"
+"0","#| echo: false"
+"0",""
+"0","# Function to perform logistic regression classification"
+"0","def logistic_regression(X_train, X_test, y_train, y_test, C):"
+"0","    # Scale data"
+"0","    scaler = StandardScaler()"
+"0","    X_train_scaled = scaler.fit_transform(X_train)"
+"0","    X_test_scaled = scaler.transform(X_test)"
+"0","    "
+"0","    # Train classifier"
+"0","    clf = LogisticRegression(C=C, multi_class='ovr', max_iter=1000, random_state=48)"
+"0","    clf.fit(X_train_scaled, y_train)"
+"0","    "
+"0","    # Predict"
+"0","    y_pred = clf.predict(X_test_scaled)"
+"0","    "
+"0","    return y_pred"
+"0","    "
+"0","lr_results = []"
+"0","lr_class = []"
+"0",""
+"0","for params in ParameterGrid(param_grids[""LinearRegression""]):"
+"0","    # Track metrics across folds"
+"0","    fold_accuracies = []"
+"0","    fold_precisions = []"
+"0","    fold_recalls = []"
+"0","    fold_times = []"
+"0","    "
+"0","    print(f""Testing Logistic Regression model with C = {params['C']}"")"
+"0","    "
+"0","    # Perform k-fold cross-validation"
+"0","    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):"
+"0","        X_train, X_test = X[train_idx], X[test_idx]"
+"0","        y_train, y_test = y[train_idx], y[test_idx]"
+"0","        "
+"0","        start_time = time.time()"
+"0","        y_pred = logistic_regression(X_train, X_test, y_train, y_test, params['C'])"
+"0","        elapsed_time = time.time() - start_time"
+"0","        fold_times.append(elapsed_time)"
+"0","        "
+"0","        accuracy = accuracy_score(y_test, y_pred)"
+"0","        report = classification_report(y_test, y_pred, output_dict=True)"
+"0","        precision = report['weighted avg']['precision']"
+"0","        recall = report['weighted avg']['recall']"
+"0","        "
+"0","        # Store results for this fold"
+"0","        fold_accuracies.append(accuracy)"
+"0","        fold_precisions.append(precision)"
+"0","        fold_recalls.append(recall)"
+"0","        "
+"0","        print(f""  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s"")"
+"0","    "
+"0","    # Compute average metrics across all folds"
+"0","    mean_accuracy = np.mean(fold_accuracies)"
+"0","    mean_precision = np.mean(fold_precisions)"
+"0","    mean_recall = np.mean(fold_recalls)"
+"0","    total_time = sum(fold_times)"
+"0","    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)"
+"0","    "
+"0","    # Store results for this parameter combination"
+"0","    result = {"
+"0","        'C': params['C'],"
+"0","        'mean_accuracy': mean_accuracy,"
+"0","        'mean_precision': mean_precision,"
+"0","        'mean_recall': mean_recall,"
+"0","        'f1_score': f1_score,"
+"0","        'total_time': total_time"
+"0","    }"
+"0","    lr_results.append(result)"
+"0","    "
+"0","    print(f""  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s"")"
+"0","    "
+"0","lr_df = calculate_selection_score(pd.DataFrame(lr_results))"
+"1","Testing Logistic Regression model with C = 0.01
+"
+"1","  Fold 1/5: Accuracy=0.9387, Precision=0.9386, Recall=0.9387, Time=0.37s
+  Fold 2/5: Accuracy=0.9376, Precision=0.9385, Recall=0.9376, Time=0.30s
+"
+"1","  Fold 3/5: Accuracy=0.9387, Precision=0.9386, Recall=0.9387, Time=0.28s
+"
+"1","  Fold 4/5: Accuracy=0.9285, Precision=0.9283, Recall=0.9285, Time=0.28s
+  Fold 5/5: Accuracy=0.9398, Precision=0.9402, Recall=0.9398, Time=0.28s
+  Average: Accuracy=0.9367, Precision=0.9368, Recall=0.9367, F1=0.9367, Time=1.51s
+Testing Logistic Regression model with C = 0.1
+"
+"1","  Fold 1/5: Accuracy=0.9484, Precision=0.9483, Recall=0.9484, Time=0.59s
+"
+"1","  Fold 2/5: Accuracy=0.9382, Precision=0.9384, Recall=0.9382, Time=0.52s
+"
+"1","  Fold 3/5: Accuracy=0.9452, Precision=0.9451, Recall=0.9452, Time=0.51s
+"
+"1","  Fold 4/5: Accuracy=0.9387, Precision=0.9385, Recall=0.9387, Time=0.51s
+"
+"1","  Fold 5/5: Accuracy=0.9398, Precision=0.9404, Recall=0.9398, Time=0.50s
+  Average: Accuracy=0.9420, Precision=0.9421, Recall=0.9420, F1=0.9421, Time=2.63s
+Testing Logistic Regression model with C = 1.0
+"
+"1","  Fold 1/5: Accuracy=0.9392, Precision=0.9391, Recall=0.9392, Time=1.00s
+"
+"1","  Fold 2/5: Accuracy=0.9344, Precision=0.9346, Recall=0.9344, Time=1.05s
+"
+"1","  Fold 3/5: Accuracy=0.9409, Precision=0.9407, Recall=0.9409, Time=1.01s
+"
+"1","  Fold 4/5: Accuracy=0.9263, Precision=0.9263, Recall=0.9263, Time=1.03s
+"
+"1","  Fold 5/5: Accuracy=0.9338, Precision=0.9341, Recall=0.9338, Time=1.04s
+  Average: Accuracy=0.9349, Precision=0.9350, Recall=0.9349, F1=0.9349, Time=5.14s
+Testing Logistic Regression model with C = 10.0
+"
+"1","  Fold 1/5: Accuracy=0.9312, Precision=0.9314, Recall=0.9312, Time=2.03s
+"
+"1","  Fold 2/5: Accuracy=0.9161, Precision=0.9168, Recall=0.9161, Time=2.41s
+"
+"1","  Fold 3/5: Accuracy=0.9274, Precision=0.9277, Recall=0.9274, Time=2.02s
+"
+"1","  Fold 4/5: Accuracy=0.9145, Precision=0.9144, Recall=0.9145, Time=2.92s
+"
+"1","  Fold 5/5: Accuracy=0.9236, Precision=0.9240, Recall=0.9236, Time=3.03s
+  Average: Accuracy=0.9226, Precision=0.9229, Recall=0.9226, F1=0.9227, Time=12.41s
+Testing Logistic Regression model with C = 100.0
+"
+"2","C:\Users\taylo\ANACON~1\Lib\site-packages\sklearn\linear_model\_logistic.py:460: ConvergenceWarning: lbfgs failed to converge (status=1):
+STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
+
+Increase the number of iterations (max_iter) or scale the data as shown in:
+    https://scikit-learn.org/stable/modules/preprocessing.html
+Please also refer to the documentation for alternative solver options:
+    https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression
+  n_iter_i = _check_optimize_"
+"2","result(
+"
+"1","  Fold 1/5: Accuracy=0.9210, Precision=0.9214, Recall=0.9210, Time=5.59s
+"
+"2","C:\Users\taylo\ANACON~1\Lib\site-packages\sklearn\linear_model\_logistic.py:460: ConvergenceWarning: lbfgs failed to converge (status=1):
+STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
+
+Increase the number of iterations (max_iter) or scale the data as shown in:
+    https://scikit-learn.org/stable/modules/preprocessing.html
+Please also refer to the documentation for alternative solver options:
+    https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression
+  n_iter_i = _check_optimize_"
+"2","result(
+"
+"1","  Fold 2/5: Accuracy=0.9086, Precision=0.9099, Recall=0.9086, Time=4.84s
+"
+"2","C:\Users\taylo\ANACON~1\Lib\site-packages\sklearn\linear_model\_logistic.py:460: ConvergenceWarning: lbfgs failed to converge (status=1):
+STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
+
+Increase the number of iterations (max_iter) or scale the data as shown in:
+    https://scikit-learn.org/stable/modules/preprocessing.html
+Please also refer to the documentation for alternative solver options:
+    https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression
+  n_iter_i = _check_optimize_"
+"2","result(
+"
+"1","  Fold 3/5: Accuracy=0.9199, Precision=0.9205, Recall=0.9199, Time=11.44s
+"
+"2","C:\Users\taylo\ANACON~1\Lib\site-packages\sklearn\linear_model\_logistic.py:460: ConvergenceWarning: lbfgs failed to converge (status=1):
+STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
+
+Increase the number of iterations (max_iter) or scale the data as shown in:
+    https://scikit-learn.org/stable/modules/preprocessing.html
+Please also refer to the documentation for alternative solver options:
+    https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression
+  n_iter_i = _check_optimize_"
+"2","result(
+"
+"1","  Fold 4/5: Accuracy=0.9107, Precision=0.9110, Recall=0.9107, Time=5.48s
+"
+"2","C:\Users\taylo\ANACON~1\Lib\site-packages\sklearn\linear_model\_logistic.py:460: ConvergenceWarning: lbfgs failed to converge (status=1):
+STOP: TOTAL NO. of ITERATIONS REACHED LIMIT.
+
+Increase the number of iterations (max_iter) or scale the data as shown in:
+    https://scikit-learn.org/stable/modules/preprocessing.html
+Please also refer to the documentation for alternative solver options:
+    https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression
+  n_iter_i = _check_optimize_"
+"2","result(
+"
+"1","  Fold 5/5: Accuracy=0.9161, Precision=0.9163, Recall=0.9161, Time=3.95s
+  Average: Accuracy=0.9153, Precision=0.9158, Recall=0.9153, F1=0.9155, Time=31.29s
+"

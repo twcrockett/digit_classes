@@ -1,0 +1,386 @@
+"0","#| warning: false"
+"0","#| output: false"
+"0","#| echo: false"
+"0",""
+"0","def SVD_residual(X_train, X_test, y_train, y_test, n_components):"
+"0","    "
+"0","    n_components = params['n_components']"
+"0","    "
+"0","    # Scale data"
+"0","    scaler = StandardScaler()"
+"0","    X_train_scaled = scaler.fit_transform(X_train)"
+"0","    X_test_scaled = scaler.transform(X_test)"
+"0","    "
+"0","    # Group training data by digit class"
+"0","    digit_classes = np.unique(y_train)"
+"0","    class_indices = {digit: np.where(y_train == digit)[0] for digit in digit_classes}"
+"0","    "
+"0","    # Compute SVD for each digit class separately"
+"0","    class_subspaces = {}"
+"0","    for digit in digit_classes:"
+"0","        # Get data for this digit class"
+"0","        X_digit = X_train_scaled[class_indices[digit]]"
+"0","        "
+"0","        # Compute SVD for this class"
+"0","        svd_digit = TruncatedSVD(n_components=n_components)"
+"0","        svd_digit.fit(X_digit)"
+"0","        "
+"0","        # Store the SVD components and mean for this digit class"
+"0","        class_subspaces[digit] = {"
+"0","            'components': svd_digit.components_,"
+"0","            'mean': np.mean(X_digit, axis=0)"
+"0","        }"
+"0","    "
+"0","    # Function to compute Frobenius norm of residual"
+"0","    def compute_residual(x, subspace):"
+"0","        # Project the sample onto the subspace"
+"0","        components = subspace['components']"
+"0","        mean_centered_x = x - subspace['mean']"
+"0","        projection = mean_centered_x @ components.T @ components"
+"0","        "
+"0","        # Compute the residual"
+"0","        residual = mean_centered_x - projection"
+"0","        "
+"0","        # Return the Frobenius norm of the residual"
+"0","        return np.linalg.norm(residual)"
+"0","    "
+"0","    # Predict test samples using minimum residual"
+"0","    y_pred = []"
+"0","    residuals = np.zeros((X_test_scaled.shape[0], len(digit_classes)))"
+"0","    "
+"0","    for i, x in enumerate(X_test_scaled):"
+"0","        # Compute residual for each digit class"
+"0","        for j, digit in enumerate(digit_classes):"
+"0","            residuals[i, j] = compute_residual(x, class_subspaces[digit])"
+"0","        "
+"0","        # Predict the digit with minimum residual"
+"0","        y_pred.append(digit_classes[np.argmin(residuals[i])])"
+"0","    "
+"0","    # Convert to numpy array"
+"0","    y_pred = np.array(y_pred)"
+"0","    "
+"0","    return(y_pred)"
+"0","    "
+"0","    "
+"0","    "
+"0","def SVD_SVC(X_train, X_test, y_train, y_test, n_components):"
+"0","    # Scale data"
+"0","    scaler = StandardScaler()"
+"0","    X_train_scaled = scaler.fit_transform(X_train)"
+"0","    X_test_scaled = scaler.transform(X_test)"
+"0","    "
+"0","    # Apply SVD"
+"0","    svd = TruncatedSVD(n_components=n_components)"
+"0","    X_train_svd = svd.fit_transform(X_train_scaled)"
+"0","    X_test_svd = svd.transform(X_test_scaled)"
+"0","    "
+"0","    # Train classifier"
+"0","    clf = SVC()"
+"0","    clf.fit(X_train_svd, y_train)"
+"0","    "
+"0","    # Predict"
+"0","    y_pred = clf.predict(X_test_svd)"
+"0","    "
+"0","    return(y_pred)"
+"0","    "
+"0","    "
+"0","    "
+"0","svd_results = []"
+"0",""
+"0","for params in ParameterGrid(param_grids[""SVD""]):"
+"0","    # Track metrics across folds"
+"0","    fold_accuracies = []"
+"0","    fold_precisions = []"
+"0","    fold_recalls = []"
+"0","    fold_times = []"
+"0","    "
+"0","    print(f""Testing {params['classifier']} model with n_components = {params['n_components']}"")"
+"0","    "
+"0","    # Perform k-fold cross-validation"
+"0","    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):"
+"0","        "
+"0","        X_train, X_test = X[train_idx], X[test_idx]"
+"0","        y_train, y_test = y[train_idx], y[test_idx]"
+"0","        "
+"0","        start_time = time.time()"
+"0","        "
+"0","        if params['classifier'] == ""SVC"":"
+"0","            y_pred = SVD_SVC(X_train, X_test, y_train, y_test, params['n_components'])"
+"0","        elif params['classifier'] == ""residual"":"
+"0","            y_pred = SVD_residual(X_train, X_test, y_train, y_test, params['n_components'])"
+"0","        else:"
+"0","            raise ValueError(f""Unknown method: {params['classifier']}"")"
+"0","        "
+"0","        elapsed_time = time.time() - start_time"
+"0","        fold_times.append(elapsed_time)"
+"0","        "
+"0","        accuracy = accuracy_score(y_test, y_pred)"
+"0","        report = classification_report(y_test, y_pred, output_dict=True)"
+"0","        precision = report['weighted avg']['precision']"
+"0","        recall = report['weighted avg']['recall']"
+"0","        "
+"0","        # Store results for this fold"
+"0","        fold_accuracies.append(accuracy)"
+"0","        fold_precisions.append(precision)"
+"0","        fold_recalls.append(recall)"
+"0","        "
+"0","        print(f""  Fold {fold_idx+1}/{skf.n_splits}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, Recall={recall:.4f}, Time={elapsed_time:.2f}s"")"
+"0","    "
+"0","    # Compute average metrics across all folds"
+"0","    mean_accuracy = np.mean(fold_accuracies)"
+"0","    mean_precision = np.mean(fold_precisions)"
+"0","    mean_recall = np.mean(fold_recalls)"
+"0","    total_time = sum(fold_times)"
+"0","    f1_score = 2 * (mean_precision * mean_recall) / (mean_precision + mean_recall)"
+"0","    "
+"0","    # Store results for this parameter combination"
+"0","    result = {"
+"0","        'classifier': params['classifier'],"
+"0","        'n_components': params['n_components'],"
+"0","        'mean_accuracy': mean_accuracy,"
+"0","        'mean_precision': mean_precision,"
+"0","        'mean_recall': mean_recall,"
+"0","        'f1_score': f1_score,"
+"0","        'total_time': total_time"
+"0","    }"
+"0","    svd_results.append(result)"
+"0","    "
+"0","    print(f""  Average: Accuracy={mean_accuracy:.4f}, Precision={mean_precision:.4f}, Recall={mean_recall:.4f}, F1={f1_score:.4f}, Time={total_time:.2f}s"")"
+"0","    "
+"0","svd_df = calculate_selection_score(pd.DataFrame(svd_results))"
+"1","Testing SVC model with n_components = 8
+"
+"1","  Fold 1/5: Accuracy=0.8849, Precision=0.8857, Recall=0.8849, Time=0.78s
+"
+"1","  Fold 2/5: Accuracy=0.8855, Precision=0.8869, Recall=0.8855, Time=0.77s
+"
+"1","  Fold 3/5: Accuracy=0.8780, Precision=0.8777, Recall=0.8780, Time=0.81s
+"
+"1","  Fold 4/5: Accuracy=0.8768, Precision=0.8791, Recall=0.8768, Time=0.74s
+"
+"1","  Fold 5/5: Accuracy=0.8757, Precision=0.8763, Recall=0.8757, Time=0.70s
+  Average: Accuracy=0.8802, Precision=0.8811, Recall=0.8802, F1=0.8807, Time=3.81s
+Testing SVC model with n_components = 16
+"
+"1","  Fold 1/5: Accuracy=0.9565, Precision=0.9566, Recall=0.9565, Time=0.59s
+"
+"1","  Fold 2/5: Accuracy=0.9484, Precision=0.9495, Recall=0.9484, Time=0.58s
+"
+"1","  Fold 3/5: Accuracy=0.9548, Precision=0.9549, Recall=0.9548, Time=0.58s
+"
+"1","  Fold 4/5: Accuracy=0.9473, Precision=0.9473, Recall=0.9473, Time=0.60s
+"
+"1","  Fold 5/5: Accuracy=0.9532, Precision=0.9534, Recall=0.9532, Time=0.59s
+  Average: Accuracy=0.9520, Precision=0.9524, Recall=0.9520, F1=0.9522, Time=2.95s
+Testing SVC model with n_components = 24
+"
+"1","  Fold 1/5: Accuracy=0.9608, Precision=0.9609, Recall=0.9608, Time=0.62s
+"
+"1","  Fold 2/5: Accuracy=0.9661, Precision=0.9666, Recall=0.9661, Time=0.62s
+"
+"1","  Fold 3/5: Accuracy=0.9656, Precision=0.9659, Recall=0.9656, Time=0.63s
+"
+"1","  Fold 4/5: Accuracy=0.9591, Precision=0.9595, Recall=0.9591, Time=0.62s
+"
+"1","  Fold 5/5: Accuracy=0.9640, Precision=0.9641, Recall=0.9640, Time=0.62s
+  Average: Accuracy=0.9631, Precision=0.9634, Recall=0.9631, F1=0.9632, Time=3.12s
+Testing SVC model with n_components = 32
+"
+"1","  Fold 1/5: Accuracy=0.9694, Precision=0.9697, Recall=0.9694, Time=0.70s
+"
+"1","  Fold 2/5: Accuracy=0.9720, Precision=0.9722, Recall=0.9720, Time=0.69s
+"
+"1","  Fold 3/5: Accuracy=0.9661, Precision=0.9664, Recall=0.9661, Time=0.70s
+"
+"1","  Fold 4/5: Accuracy=0.9661, Precision=0.9667, Recall=0.9661, Time=0.67s
+"
+"1","  Fold 5/5: Accuracy=0.9710, Precision=0.9710, Recall=0.9710, Time=0.68s
+  Average: Accuracy=0.9689, Precision=0.9692, Recall=0.9689, F1=0.9691, Time=3.43s
+Testing SVC model with n_components = 40
+"
+"1","  Fold 1/5: Accuracy=0.9694, Precision=0.9696, Recall=0.9694, Time=0.74s
+"
+"1","  Fold 2/5: Accuracy=0.9758, Precision=0.9761, Recall=0.9758, Time=0.73s
+"
+"1","  Fold 3/5: Accuracy=0.9688, Precision=0.9692, Recall=0.9688, Time=0.74s
+"
+"1","  Fold 4/5: Accuracy=0.9693, Precision=0.9699, Recall=0.9693, Time=0.75s
+"
+"1","  Fold 5/5: Accuracy=0.9715, Precision=0.9716, Recall=0.9715, Time=0.72s
+  Average: Accuracy=0.9710, Precision=0.9713, Recall=0.9710, F1=0.9711, Time=3.69s
+Testing SVC model with n_components = 48
+"
+"1","  Fold 1/5: Accuracy=0.9699, Precision=0.9702, Recall=0.9699, Time=0.79s
+"
+"1","  Fold 2/5: Accuracy=0.9758, Precision=0.9761, Recall=0.9758, Time=0.84s
+"
+"1","  Fold 3/5: Accuracy=0.9694, Precision=0.9697, Recall=0.9694, Time=0.83s
+"
+"1","  Fold 4/5: Accuracy=0.9683, Precision=0.9687, Recall=0.9683, Time=0.80s
+"
+"1","  Fold 5/5: Accuracy=0.9726, Precision=0.9726, Recall=0.9726, Time=0.79s
+  Average: Accuracy=0.9712, Precision=0.9715, Recall=0.9712, F1=0.9713, Time=4.04s
+Testing SVC model with n_components = 56
+"
+"1","  Fold 1/5: Accuracy=0.9699, Precision=0.9702, Recall=0.9699, Time=0.85s
+"
+"1","  Fold 2/5: Accuracy=0.9742, Precision=0.9745, Recall=0.9742, Time=0.86s
+"
+"1","  Fold 3/5: Accuracy=0.9694, Precision=0.9697, Recall=0.9694, Time=0.87s
+"
+"1","  Fold 4/5: Accuracy=0.9693, Precision=0.9698, Recall=0.9693, Time=0.86s
+"
+"1","  Fold 5/5: Accuracy=0.9736, Precision=0.9737, Recall=0.9736, Time=0.86s
+  Average: Accuracy=0.9713, Precision=0.9716, Recall=0.9713, F1=0.9714, Time=4.31s
+Testing SVC model with n_components = 64
+"
+"1","  Fold 1/5: Accuracy=0.9694, Precision=0.9698, Recall=0.9694, Time=0.95s
+"
+"1","  Fold 2/5: Accuracy=0.9742, Precision=0.9745, Recall=0.9742, Time=0.91s
+"
+"1","  Fold 3/5: Accuracy=0.9683, Precision=0.9688, Recall=0.9683, Time=0.89s
+"
+"1","  Fold 4/5: Accuracy=0.9688, Precision=0.9693, Recall=0.9688, Time=0.90s
+"
+"1","  Fold 5/5: Accuracy=0.9726, Precision=0.9727, Recall=0.9726, Time=0.87s
+  Average: Accuracy=0.9706, Precision=0.9710, Recall=0.9706, F1=0.9708, Time=4.51s
+Testing SVC model with n_components = 96
+"
+"1","  Fold 1/5: Accuracy=0.9672, Precision=0.9678, Recall=0.9672, Time=1.11s
+"
+"1","  Fold 2/5: Accuracy=0.9731, Precision=0.9735, Recall=0.9731, Time=1.12s
+"
+"1","  Fold 3/5: Accuracy=0.9683, Precision=0.9689, Recall=0.9683, Time=1.12s
+"
+"1","  Fold 4/5: Accuracy=0.9661, Precision=0.9667, Recall=0.9661, Time=1.09s
+"
+"1","  Fold 5/5: Accuracy=0.9715, Precision=0.9716, Recall=0.9715, Time=1.17s
+  Average: Accuracy=0.9692, Precision=0.9697, Recall=0.9692, F1=0.9695, Time=5.61s
+Testing SVC model with n_components = 128
+"
+"1","  Fold 1/5: Accuracy=0.9688, Precision=0.9694, Recall=0.9688, Time=1.37s
+"
+"1","  Fold 2/5: Accuracy=0.9726, Precision=0.9730, Recall=0.9726, Time=1.27s
+"
+"1","  Fold 3/5: Accuracy=0.9683, Precision=0.9691, Recall=0.9683, Time=1.21s
+"
+"1","  Fold 4/5: Accuracy=0.9650, Precision=0.9657, Recall=0.9650, Time=1.27s
+"
+"1","  Fold 5/5: Accuracy=0.9704, Precision=0.9705, Recall=0.9704, Time=1.26s
+  Average: Accuracy=0.9690, Precision=0.9695, Recall=0.9690, F1=0.9693, Time=6.38s
+Testing residual model with n_components = 8
+"
+"1","  Fold 1/5: Accuracy=0.9167, Precision=0.9178, Recall=0.9167, Time=0.21s
+  Fold 2/5: Accuracy=0.9215, Precision=0.9229, Recall=0.9215, Time=0.19s
+"
+"1","  Fold 3/5: Accuracy=0.9151, Precision=0.9168, Recall=0.9151, Time=0.21s
+  Fold 4/5: Accuracy=0.9123, Precision=0.9140, Recall=0.9123, Time=0.21s
+  Fold 5/5: Accuracy=0.9225, Precision=0.9245, Recall=0.9225, Time=0.21s
+  Average: Accuracy=0.9176, Precision=0.9192, Recall=0.9176, F1=0.9184, Time=1.02s
+Testing residual model with n_components = 16
+"
+"1","  Fold 1/5: Accuracy=0.9387, Precision=0.9391, Recall=0.9387, Time=0.24s
+  Fold 2/5: Accuracy=0.9495, Precision=0.9503, Recall=0.9495, Time=0.25s
+"
+"1","  Fold 3/5: Accuracy=0.9414, Precision=0.9418, Recall=0.9414, Time=0.23s
+  Fold 4/5: Accuracy=0.9328, Precision=0.9339, Recall=0.9328, Time=0.23s
+"
+"1","  Fold 5/5: Accuracy=0.9403, Precision=0.9412, Recall=0.9403, Time=0.23s
+  Average: Accuracy=0.9405, Precision=0.9413, Recall=0.9405, F1=0.9409, Time=1.18s
+Testing residual model with n_components = 24
+"
+"1","  Fold 1/5: Accuracy=0.9419, Precision=0.9423, Recall=0.9419, Time=1.65s
+"
+"1","  Fold 2/5: Accuracy=0.9478, Precision=0.9482, Recall=0.9478, Time=1.62s
+"
+"1","  Fold 3/5: Accuracy=0.9478, Precision=0.9484, Recall=0.9478, Time=1.51s
+"
+"1","  Fold 4/5: Accuracy=0.9398, Precision=0.9401, Recall=0.9398, Time=1.56s
+"
+"1","  Fold 5/5: Accuracy=0.9457, Precision=0.9464, Recall=0.9457, Time=1.48s
+  Average: Accuracy=0.9446, Precision=0.9451, Recall=0.9446, F1=0.9448, Time=7.82s
+Testing residual model with n_components = 32
+"
+"1","  Fold 1/5: Accuracy=0.9435, Precision=0.9441, Recall=0.9435, Time=1.62s
+"
+"1","  Fold 2/5: Accuracy=0.9484, Precision=0.9489, Recall=0.9484, Time=1.58s
+"
+"1","  Fold 3/5: Accuracy=0.9446, Precision=0.9452, Recall=0.9446, Time=1.65s
+"
+"1","  Fold 4/5: Accuracy=0.9403, Precision=0.9406, Recall=0.9403, Time=1.56s
+"
+"1","  Fold 5/5: Accuracy=0.9462, Precision=0.9473, Recall=0.9462, Time=1.59s
+  Average: Accuracy=0.9446, Precision=0.9452, Recall=0.9446, F1=0.9449, Time=7.99s
+Testing residual model with n_components = 40
+"
+"1","  Fold 1/5: Accuracy=0.9409, Precision=0.9419, Recall=0.9409, Time=1.01s
+"
+"1","  Fold 2/5: Accuracy=0.9452, Precision=0.9464, Recall=0.9452, Time=0.95s
+"
+"1","  Fold 3/5: Accuracy=0.9425, Precision=0.9432, Recall=0.9425, Time=0.96s
+"
+"1","  Fold 4/5: Accuracy=0.9301, Precision=0.9320, Recall=0.9301, Time=0.95s
+"
+"1","  Fold 5/5: Accuracy=0.9457, Precision=0.9468, Recall=0.9457, Time=0.98s
+  Average: Accuracy=0.9408, Precision=0.9421, Recall=0.9408, F1=0.9415, Time=4.85s
+Testing residual model with n_components = 48
+"
+"1","  Fold 1/5: Accuracy=0.9344, Precision=0.9361, Recall=0.9344, Time=1.07s
+"
+"1","  Fold 2/5: Accuracy=0.9382, Precision=0.9401, Recall=0.9382, Time=1.10s
+"
+"1","  Fold 3/5: Accuracy=0.9414, Precision=0.9424, Recall=0.9414, Time=1.15s
+"
+"1","  Fold 4/5: Accuracy=0.9225, Precision=0.9251, Recall=0.9225, Time=1.07s
+"
+"1","  Fold 5/5: Accuracy=0.9414, Precision=0.9434, Recall=0.9414, Time=1.08s
+  Average: Accuracy=0.9356, Precision=0.9374, Recall=0.9356, F1=0.9365, Time=5.47s
+Testing residual model with n_components = 56
+"
+"1","  Fold 1/5: Accuracy=0.9333, Precision=0.9352, Recall=0.9333, Time=1.08s
+"
+"1","  Fold 2/5: Accuracy=0.9371, Precision=0.9391, Recall=0.9371, Time=1.09s
+"
+"1","  Fold 3/5: Accuracy=0.9371, Precision=0.9384, Recall=0.9371, Time=1.08s
+"
+"1","  Fold 4/5: Accuracy=0.9209, Precision=0.9230, Recall=0.9209, Time=1.10s
+"
+"1","  Fold 5/5: Accuracy=0.9360, Precision=0.9382, Recall=0.9360, Time=1.13s
+  Average: Accuracy=0.9329, Precision=0.9348, Recall=0.9329, F1=0.9338, Time=5.48s
+Testing residual model with n_components = 64
+"
+"1","  Fold 1/5: Accuracy=0.9290, Precision=0.9314, Recall=0.9290, Time=1.25s
+"
+"1","  Fold 2/5: Accuracy=0.9280, Precision=0.9305, Recall=0.9280, Time=1.12s
+"
+"1","  Fold 3/5: Accuracy=0.9382, Precision=0.9399, Recall=0.9382, Time=1.16s
+"
+"1","  Fold 4/5: Accuracy=0.9172, Precision=0.9201, Recall=0.9172, Time=1.12s
+"
+"1","  Fold 5/5: Accuracy=0.9306, Precision=0.9329, Recall=0.9306, Time=1.16s
+  Average: Accuracy=0.9286, Precision=0.9309, Recall=0.9286, F1=0.9298, Time=5.81s
+Testing residual model with n_components = 96
+"
+"1","  Fold 1/5: Accuracy=0.9177, Precision=0.9215, Recall=0.9177, Time=1.65s
+"
+"1","  Fold 2/5: Accuracy=0.9161, Precision=0.9211, Recall=0.9161, Time=1.51s
+"
+"1","  Fold 3/5: Accuracy=0.9194, Precision=0.9230, Recall=0.9194, Time=1.49s
+"
+"1","  Fold 4/5: Accuracy=0.9016, Precision=0.9055, Recall=0.9016, Time=1.49s
+"
+"1","  Fold 5/5: Accuracy=0.9193, Precision=0.9231, Recall=0.9193, Time=1.44s
+  Average: Accuracy=0.9148, Precision=0.9188, Recall=0.9148, F1=0.9168, Time=7.59s
+Testing residual model with n_components = 128
+"
+"1","  Fold 1/5: Accuracy=0.8876, Precision=0.9025, Recall=0.8876, Time=1.94s
+"
+"1","  Fold 2/5: Accuracy=0.8801, Precision=0.8975, Recall=0.8801, Time=1.86s
+"
+"1","  Fold 3/5: Accuracy=0.8753, Precision=0.8942, Recall=0.8753, Time=1.81s
+"
+"1","  Fold 4/5: Accuracy=0.8607, Precision=0.8755, Recall=0.8607, Time=1.92s
+"
+"1","  Fold 5/5: Accuracy=0.8752, Precision=0.8937, Recall=0.8752, Time=1.73s
+  Average: Accuracy=0.8758, Precision=0.8927, Recall=0.8758, F1=0.8842, Time=9.27s
+"

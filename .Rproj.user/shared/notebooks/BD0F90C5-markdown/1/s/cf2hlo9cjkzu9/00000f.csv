@@ -1,0 +1,176 @@
+"0","reticulate::repl_python()
+from pgmpy.models import BayesianNetwork
+"
+"2","Traceback (most recent call last):
+  File ""<string>"", line 1, in <module>
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 1;file://C:\Users\taylo\anaconda3\Lib\site-packages\pgmpy\__init__.pyC:\Users\taylo\ANACON~1\Lib\site-packages\pgmpy\__init__.py]8;;[39m"", line 1, in <module>
+    from .global_vars import config
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 4;file://C:\Users\taylo\anaconda3\Lib\site-packages\pgmpy\global_vars.pyC:\Users\taylo\ANACON~1\Lib\site-packages\pgmpy\global_vars.py]8;;[39m"", line 4, in <module>
+    import torch
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 367;file://C:\Users\taylo\anaconda3\Lib\site-packages\torch\__init__.pyC:\Users\taylo\ANACON~1\Lib\site-packages\torch\__init__.py]8;;[39m"", line 367, in <module>
+    from torch._C import *  # noqa: F403
+    ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ImportError: DLL load failed while importing _C: The specified procedure could not be found.
+"
+"0","from pgmpy.estimators import HillClimbSearch, BicScore, MaximumLikelihoodEstimator"
+"2","Traceback (most recent call last):
+  File ""<string>"", line 1, in <module>
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 1;file://C:\Users\taylo\anaconda3\Lib\site-packages\pgmpy\__init__.pyC:\Users\taylo\ANACON~1\Lib\site-packages\pgmpy\__init__.py]8;;[39m"", line 1, in <module>
+    from .global_vars import config
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 4;file://C:\Users\taylo\anaconda3\Lib\site-packages\pgmpy\global_vars.pyC:\Users\taylo\ANACON~1\Lib\site-packages\pgmpy\global_vars.py]8;;[39m"", line 4, in <module>
+    import torch
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 367;file://C:\Users\taylo\anaconda3\Lib\site-packages\torch\__init__.pyC:\Users\taylo\ANACON~1\Lib\site-packages\torch\__init__.py]8;;[39m"", line 367, in <module>
+    from torch._C import *  # noqa: F403
+    ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ImportError: DLL load failed while importing _C: The specified procedure could not be found.
+"
+"0","from pgmpy.inference import VariableElimination"
+"2","Traceback (most recent call last):
+  File ""<string>"", line 1, in <module>
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 1;file://C:\Users\taylo\anaconda3\Lib\site-packages\pgmpy\__init__.pyC:\Users\taylo\ANACON~1\Lib\site-packages\pgmpy\__init__.py]8;;[39m"", line 1, in <module>
+    from .global_vars import config
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 4;file://C:\Users\taylo\anaconda3\Lib\site-packages\pgmpy\global_vars.pyC:\Users\taylo\ANACON~1\Lib\site-packages\pgmpy\global_vars.py]8;;[39m"", line 4, in <module>
+    import torch
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 367;file://C:\Users\taylo\anaconda3\Lib\site-packages\torch\__init__.pyC:\Users\taylo\ANACON~1\Lib\site-packages\torch\__init__.py]8;;[39m"", line 367, in <module>
+    from torch._C import *  # noqa: F403
+    ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 122;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 122, in _find_and_load_hook
+    return _run_hook(name, _hook)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File ""[90m]8;line = 96;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 96, in _run_hook
+    module = hook()
+             ^^^^^^
+  File ""[90m]8;line = 120;file://C:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.pyC:\Users\taylo\AppData\Local\R\win-library\4.3\reticulate\python\rpytools\loader.py]8;;[39m"", line 120, in _hook
+    return _find_and_load(name, import_)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ImportError: DLL load failed while importing _C: The specified procedure could not be found.
+"
+"0","from sklearn.preprocessing import KBinsDiscretizer"
+"0","from sklearn.decomposition import PCA"
+"0",""

@@ -1,0 +1,138 @@
+"0","#| warning: false"
+"0","#| output: false"
+"0","#| echo: false"
+"0",""
+"0","library(reticulate)"
+"0","library(Rdimtools)  # For importing USPS digit data"
+"2","Registered S3 methods overwritten by 'htmltools':
+  method               from         
+  print.html           tools:rstudio
+  print.shiny.tag      tools:rstudio
+  print.shiny.tag.list tools:rstudio
+"
+"2","Registered S3 method overwritten by 'htmlwidgets':
+  method           from         
+  print.htmlwidget tools:rstudio
+"
+"2","** ------------------------------------------------------- **
+"
+"2","** Rdimtools || Dimension Reduction and Estimation Toolbox
+"
+"2","**
+"
+"2","** Version    : 1.1.2       (2025)
+"
+"2","** Maintainer : Kisung You  (kisungyou@outlook.com)
+"
+"2","** Website    : https://kisungyou.com/Rdimtools/
+"
+"2","**
+"
+"2","** Please see 'citation('Rdimtools)' to cite the package. 
+"
+"2","** ------------------------------------------------------- **
+"
+"0","library(tidyverse)"
+"2","── [1mAttaching core tidyverse packages[22m ─────────────────────────────────────────────────────────────────────────────────────── tidyverse 2.0.0 ──
+[32m✔[39m [34mdplyr    [39m 1.1.4     [32m✔[39m [34mreadr    [39m 2.1.4
+[32m✔[39m [34mforcats  [39m 1.0.0     [32m✔[39m [34mstringr  [39m 1.5.1
+[32m✔[39m [34mggplot2  [39m 3.5.2     [32m✔[39m [34mtibble   [39m 3.2.1
+[32m✔[39m [34mlubridate[39m 1.9.2     [32m✔[39m [34mtidyr    [39m 1.3.1
+[32m✔[39m [34mpurrr    [39m 1.0.4     "
+"2","── [1mConflicts[22m ───────────────────────────────────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
+[31m✖[39m [34mdplyr[39m::[32mfilter()[39m masks [34mstats[39m::filter()
+[31m✖[39m [34mdplyr[39m::[32mlag()[39m    masks [34mstats[39m::lag()
+[36mℹ[39m Use the ]8;;http://conflicted.r-lib.org/conflicted package]8;; to force all conflicts to become errors"
+"0","library(reactable)"
+"0","library(htmltools)"
+"0","library(highcharter)"
+"2","Registered S3 method overwritten by 'quantmod':
+  method            from
+  as.zoo.data.frame zoo 
+"
+"2","Registered S3 method overwritten by 'data.table':
+  method           from
+  print.data.table     
+"
+"0","data(usps)"
+"0",""
+"0","results_table <- function(results, best_idx=NULL, prefix_cols=NULL){"
+"0","  if (is.null(best_idx)) {best_f1_idx <- which.max(results$selection_score)}"
+"0","  "
+"0","  # Start with the standard columns for metrics"
+"0","  standard_cols <- list("
+"0","    mean_accuracy = colDef(name = ""Accuracy"", minWidth = 80, format = colFormat(digits = 4)),"
+"0","    mean_precision = colDef(name = ""Precision"", minWidth = 80, format = colFormat(digits = 4)),"
+"0","    mean_recall = colDef(name = ""Recall"", minWidth = 80, format = colFormat(digits = 4)),"
+"0","    f1_score = colDef(name = ""F1 Score"", minWidth = 80, format = colFormat(digits = 4)),"
+"0","    total_time = colDef(name = ""Time"", minWidth = 80, format = colFormat(digits = 2, suffix = ""s"")),"
+"0","    selection_score = colDef(name = ""Score"", minWidth = 80, format = colFormat(digits = 4))"
+"0","  )"
+"0","  "
+"0","  # Stylize prefix columns if provided"
+"0","  if (!is.null(prefix_cols)) {"
+"0","    # Apply special styling to each prefix column"
+"0","    for (col_name in names(prefix_cols)) {"
+"0","      # Get the existing colDef"
+"0","      current_def <- prefix_cols[[col_name]]"
+"0","      "
+"0","      # Merge with new visual distinctions instead of replacing"
+"0","      current_style <- current_def$style %||% list()"
+"0","      current_header_style <- current_def$headerStyle %||% list()"
+"0","      "
+"0","      # Update with visual distinctions while preserving existing settings"
+"0","      prefix_cols[[col_name]] <- colDef("
+"0","        name = current_def$name,"
+"0","        style = modifyList(current_style, list("
+"0","          fontWeight = ""bold"","
+"0","          background = ""#f8f9fa"""
+"0","        )),"
+"0","        headerStyle = modifyList(current_header_style, list("
+"0","          fontWeight = ""bold"","
+"0","          background = ""#e9ecef"""
+"0","        )),"
+"0","        # Preserve all other properties from the original colDef"
+"0","        width = current_def$width,"
+"0","        minWidth = current_def$minWidth,"
+"0","        maxWidth = current_def$maxWidth,"
+"0","        cell = current_def$cell,"
+"0","        format = current_def$format,"
+"0","        aggregate = current_def$aggregate,"
+"0","        sortable = current_def$sortable,"
+"0","        filterable = current_def$filterable,"
+"0","        resizable = current_def$resizable,"
+"0","        show = current_def$show,"
+"0","        align = current_def$align,"
+"0","        vAlign = current_def$vAlign,"
+"0","        class = current_def$class,"
+"0","        na = current_def$na,"
+"0","        footer = current_def$footer,"
+"0","        footerStyle = current_def$footerStyle,"
+"0","        html = current_def$html,"
+"0","        details = current_def$details,"
+"0","        defaultSortOrder = current_def$defaultSortOrder"
+"0","      )"
+"0","    }"
+"0","    "
+"0","    all_cols <- c(prefix_cols, standard_cols)"
+"0","  } else {"
+"0","    all_cols <- standard_cols"
+"0","  }"
+"0","  "
+"0","  reactable(results,"
+"0","    highlight = TRUE,"
+"0","    striped = TRUE,"
+"0","    bordered = TRUE,"
+"0","    theme = reactableTheme("
+"0","      borderColor = ""#ddd"","
+"0","      highlightColor = ""rgba(0, 0, 0, 0.05)"""
+"0","    ),"
+"0","    columns = all_cols,"
+"0","    rowStyle = function(index) {"
+"0","      if (index == best_f1_idx) {"
+"0","        list(background = ""rgba(76, 175, 80, 0.2)"")"
+"0","      }"
+"0","    }"
+"0","  )"
+"0","}"
+"0",""
